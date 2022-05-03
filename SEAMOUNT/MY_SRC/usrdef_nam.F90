@@ -104,10 +104,10 @@ CONTAINS
 
       !                        ! Set the lateral boundary condition of the global domain
       SELECT CASE (nn_ini_cond)
-         CASE (0)             ! Shchepetkin and McWilliams (2002):
-            ldIperio = .TRUE. ! basin with cyclic Est-West
-         CASE (1)             ! Ezer, Arango and Shchepetkin (2002):   
-            ldIperio = .FALSE.! basin with closed boundaries
+         CASE (0)              ! Shchepetkin and McWilliams (2002):
+            ldIperio = .TRUE.  ! basin with cyclic Est-West
+         CASE (1)              ! Ezer, Arango and Shchepetkin (2002):   
+            ldIperio = .FALSE. ! basin with closed boundaries
       END SELECT
       
       ldJperio = .FALSE.
