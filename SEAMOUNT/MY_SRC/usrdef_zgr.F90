@@ -209,11 +209,13 @@ CONTAINS
       IF(lwp) WRITE(numout,*) '    ~~~~~~~~~~~'
       IF(lwp) WRITE(numout,*) '       SEAMOUNT case : terrain-following k_bot = jpkm1 for ocean points'
       !
-      z2d(:,:) = REAL( jpkm1 , wp )                              ! flat bottom
+      z2d(:,:) = REAL( jpkm1 , wp )          ! terrain-following levels
+      CALL lbc_lnk( 'usrdef_zgr', z2d , 'T', 1._wp )
+      k_bot(:,:) = NINT( z2d(:,:) )          ! = jpkm1 over the ocean point, =0 elsewhere
       !
-      k_bot(:,:) = NINT( z2d(:,:) )          ! =jpkm1 over the ocean point, =0 elsewhere
-      !
-      k_top(:,:) = MIN( 1 , k_bot(:,:) )     ! = 1    over the ocean point, =0 elsewhere
+      z2d(:,:) = MIN( 1._wp , FLOAT(k_bot(:,:)) )     ! = 1     over the ocean point, =0 elsewhere
+      CALL lbc_lnk( 'usrdef_zgr', z2d , 'T', 1._wp )
+      k_top(:,:) = NINT( z2d(:,:) )
       !
    END SUBROUTINE zgr_msk_top_bot
    
