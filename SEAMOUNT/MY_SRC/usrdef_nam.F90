@@ -2,7 +2,7 @@ MODULE usrdef_nam
    !!======================================================================
    !!                     ***  MODULE usrdef_nam   ***
    !!
-   !!                   ===  SEAMOUNT configuration  ===
+   !!                   ===  SEAMOUNT configuration  === test
    !!
    !! User defined : set the domain characteristics of a user configuration
    !!======================================================================
@@ -56,6 +56,8 @@ MODULE usrdef_nam
    INTEGER,  PUBLIC :: nn_ini_cond ! 0: Shchepetkin and McWilliams (2002)
                                    ! 1: Ezer, Arango and Shchepetkin (2002)
 
+   LOGICAL,  PUBLIC :: ln_init_pt_val, ln_init_curved
+
    !!----------------------------------------------------------------------
    !! NEMO/OCE 4.0 , NEMO Consortium (2018)
    !! $Id: usrdef_nam.F90 14072 2020-12-04 07:48:38Z laurent $
@@ -87,10 +89,10 @@ CONTAINS
       INTEGER                       ::   ios    ! Local integer
       INTEGER                       ::   ioptio ! Local string
       !!
-      NAMELIST/namusr_def/ rn_xdim  , rn_ydim  , rn_bot_max , rn_smnt_H   , rn_smnt_L, & 
-         &                 rn_fplane, rn_dx    , rn_dz      , ln_zco      , ln_zps   , &
-         &                 ln_sco   , ln_s_sh94, rn_theta   , rn_bb       , rn_hc    , &
-         &                 ln_vqs   , rn_rmax  , nn_ini_cond
+      NAMELIST/namusr_def/ rn_xdim  , rn_ydim  , rn_bot_max , rn_smnt_H     , rn_smnt_L      , & 
+         &                 rn_fplane, rn_dx    , rn_dz      , ln_zco        , ln_zps         , &
+         &                 ln_sco   , ln_s_sh94, rn_theta   , rn_bb         , rn_hc          , &
+         &                 ln_vqs   , rn_rmax  , nn_ini_cond, ln_init_pt_val, ln_init_curved
       !!----------------------------------------------------------------------
       !
       READ  ( numnam_cfg, namusr_def, IOSTAT = ios, ERR = 902 )
@@ -104,10 +106,10 @@ CONTAINS
 
       !                        ! Set the lateral boundary condition of the global domain
       SELECT CASE (nn_ini_cond)
-         CASE (0)              ! Shchepetkin and McWilliams (2002):
-            ldIperio = .TRUE.  ! basin with cyclic Est-West
-         CASE (1)              ! Ezer, Arango and Shchepetkin (2002):   
-            ldIperio = .FALSE. ! basin with closed boundaries
+         CASE (0)             ! Shchepetkin and McWilliams (2002):
+            ldIperio = .TRUE. ! basin with cyclic Est-West
+         CASE (1)             ! Ezer, Arango and Shchepetkin (2002):   
+            ldIperio = .FALSE.! basin with closed boundaries
       END SELECT
       
       ldJperio = .FALSE.
@@ -127,6 +129,17 @@ CONTAINS
       IF( ln_sco      )   ioptio = ioptio + 1
       IF( ioptio /= 1 )   CALL ctl_stop( ' none or several vertical coordinate options used' )
       
+      ! Check that ln_init_curved is used 
+      ! only with uniform sigma coordinates
+      IF( ln_init_curved ) THEN
+        ioptio = 0
+        IF( ln_zco      ) ioptio = ioptio + 1
+        IF( ln_zps      ) ioptio = ioptio + 1
+        IF( ln_s_sh94   ) ioptio = ioptio + 1
+        IF( ln_vqs      ) ioptio = ioptio + 1
+        IF( ioptio /= 0 ) CALL ctl_stop( ' LN_INIT_CURVED initi. option ONLY for uniform sigma coord.' )
+      ENDIF
+
       !                             ! SEAMOUNT_TEST_CASE configuration : closed domain
       !                             ! control print
       IF(lwp) THEN
@@ -157,6 +170,18 @@ CONTAINS
          ELSE IF( nn_ini_cond == 1 ) THEN
            WRITE(numout,*) '           Ezer, Arango and Shchepetkin (2002)'
          ENDIF         
+
+         IF ( ln_init_pt_val ) THEN 
+            WRITE(numout,*) '   Initial condition:     grid values calculated from point values '
+         ELSE 
+            WRITE(numout,*) '   Initial condition:     grid values calculated from grid cell means'
+            IF ( ln_init_curved ) THEN   
+               WRITE(numout,*) '                          grid cells curve with the bathymetry'
+            ELSE 
+               WRITE(numout,*) '                          grid cells boundaries interpolated from T cell points'
+            END IF
+         ENDIF 
+
          WRITE(numout,*) ''
          WRITE(numout,*) '   Global domain size:                   '
          WRITE(numout,*) '          1st dimension of glob. dom. i-dir.     jpiglo  =  ', kpi
