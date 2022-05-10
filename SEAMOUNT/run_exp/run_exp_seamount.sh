@@ -18,8 +18,7 @@ for vco in s94 vqs ; do
     #for hpg in sco prj djc ffl ffq fflr; do
     for hpg in sco prj djc ffl ffq; do
 
-        #for ini in pnt ave; do
-        ini=pnt
+        for ini in pnt ave; do
 
             #for cor in fp4 fp5; do
             cor=fp4
@@ -69,7 +68,7 @@ for vco in s94 vqs ; do
                        f90nml -g namusr_def -v ln_init_pt_val=.true. -p ${nam_cfg}".tmp1" ${nam_cfg}".tmp2"
                        ;;
                      ave)
-                       f90nml -g namusr_def -v ln_init_pt_val=.false. -v ln_init_curved=.true. -p ${nam_cfg}".tmp1" ${nam_cfg}".tmp2"
+                       f90nml -g namusr_def -v ln_init_pt_val=.false. -v ln_init_curved=.false. -p ${nam_cfg}".tmp1" ${nam_cfg}".tmp2"
                        ;;
                    esac
 
@@ -104,6 +103,6 @@ for vco in s94 vqs ; do
                    "... experiment already exists"
                 fi
             #done
-        #done
+        done
     done
 done
