@@ -21,8 +21,7 @@ for vco in s94 vqs ; do
     #hpg=sco        
 
         for ini in pnt ave; do
-        #ini=ave
-
+        
             for cor in fp4 fp5; do
             #cor=fp4
     
