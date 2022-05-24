@@ -88,11 +88,12 @@ CONTAINS
                &           / ( 1000._wp * rn_smnt_L)**2 )
          END DO
       END DO
+      CALL lbc_lnk( 'usrdef_zgr', topo, 'T', 1. )
       ! 
       ! ------------------------------------
       CALL zgr_z( pdept_1d, pdepw_1d, pe3t_1d , pe3w_1d )   ! Reference z-coordinate system
       !
-      CALL zgr_msk_top_bot( k_top , k_bot )                 ! masked top and bottom ocean t-level indices
+      CALL zgr_msk_top_bot( topo, k_top , k_bot )           ! masked top and bottom ocean t-level indices
       !
       IF ( ln_zco ) CALL zgr_zco( topo     ,                                    &  ! in : 2D bathymetry
             &                     pdept_1d , pdepw_1d, pe3t_1d , pe3w_1d,       &  !      1D ref. z-coord.
@@ -186,7 +187,7 @@ CONTAINS
    END SUBROUTINE zgr_z
 
 
-   SUBROUTINE zgr_msk_top_bot( k_top , k_bot )
+   SUBROUTINE zgr_msk_top_bot( pht, k_top , k_bot )
       !!----------------------------------------------------------------------
       !!                    ***  ROUTINE zgr_msk_top_bot  ***
       !!
@@ -199,9 +200,10 @@ CONTAINS
       !! ** Action  : - k_top : first wet ocean level index
       !!              - k_bot : last  wet ocean level index
       !!----------------------------------------------------------------------
-      INTEGER , DIMENSION(:,:), INTENT(out) ::   k_top , k_bot   ! first & last wet ocean level
+      REAL(wp), DIMENSION(:,:), INTENT(in)  ::   pht               ! model bathymetry
+      INTEGER , DIMENSION(:,:), INTENT(out) ::   k_top , k_bot     ! first & last wet ocean level
       !
-      REAL(wp), DIMENSION(jpi,jpj) ::   z2d   ! 2D local workspace
+      REAL(wp), DIMENSION(jpi,jpj)          ::   z2d, zmsk, bathy  ! 2D local workspace
       !!----------------------------------------------------------------------
       !
       IF(lwp) WRITE(numout,*)
@@ -209,11 +211,33 @@ CONTAINS
       IF(lwp) WRITE(numout,*) '    ~~~~~~~~~~~'
       IF(lwp) WRITE(numout,*) '       SEAMOUNT case : terrain-following k_bot = jpkm1 for ocean points'
       !
-      z2d(:,:) = REAL( jpkm1 , wp )          ! terrain-following levels
-      CALL lbc_lnk( 'usrdef_zgr', z2d , 'T', 1._wp )
-      k_bot(:,:) = NINT( z2d(:,:) )          ! = jpkm1 over the ocean point, =0 elsewhere
+      ! Make sure that closed boundaries are correctly defined in the bottom level
       !
-      z2d(:,:) = MIN( 1._wp , FLOAT(k_bot(:,:)) )     ! = 1     over the ocean point, =0 elsewhere
+      zmsk(:,:) = 1._wp                                            ! default: no closed boundaries
+      IF( .NOT. l_Iperio ) THEN                                    ! E-W closed:
+         WRITE(numout,*) 'CLOSING E-W BOUNDARIES'
+         zmsk(  mi0(     1+nn_hls):mi1(     1+nn_hls),:) = 0._wp   ! first column of inner global domain at 0
+         zmsk(  mi0(jpiglo-nn_hls):mi1(jpiglo-nn_hls),:) = 0._wp   ! last  column of inner global domain at 0 
+      ENDIF
+      IF( .NOT. l_Jperio ) THEN                                    ! S closed:
+         WRITE(numout,*) 'CLOSING S BOUNDARY'
+         zmsk(:,mj0(     1+nn_hls):mj1(     1+nn_hls)  ) = 0._wp   ! first line of inner global domain at 0
+      ENDIF
+      IF( .NOT. ( l_Jperio .OR. l_NFold ) ) THEN                   ! N closed:
+         WRITE(numout,*) 'CLOSING N BOUNDARY'
+         zmsk(:,mj0(jpjglo-nn_hls):mj1(jpjglo-nn_hls)  ) = 0._wp   ! last line of inner global domain at 0
+      ENDIF
+      CALL lbc_lnk( 'usrdef_zgr', zmsk, 'T', 1. )                  ! set halos
+      bathy(:,:) = pht(:,:) * zmsk(:,:)
+
+      ! Bottom level
+      z2d(:,:) = 0._wp
+      WHERE ( bathy(:,:) > 0 ) z2d(:,:) = REAL( jpkm1 , wp )       ! terrain-following levels
+      CALL lbc_lnk( 'usrdef_zgr', z2d , 'T', 1._wp )
+      k_bot(:,:) = NINT( z2d(:,:) )                                ! = jpkm1 over the ocean point, = 0 elsewhere
+      !
+      ! Top level
+      z2d(:,:) = MIN( 1._wp , FLOAT(k_bot(:,:)) )                  ! = 1 over the ocean point, = 0 elsewhere
       CALL lbc_lnk( 'usrdef_zgr', z2d , 'T', 1._wp )
       k_top(:,:) = NINT( z2d(:,:) )
       !
@@ -293,7 +317,7 @@ CONTAINS
       !                                !* bottom ocean compute from the depth of grid-points
       pk_bot(:,:) = jpkm1
       DO jk = jpkm1, 1, -1
-         WHERE( pht(:,:) < pdepw_1d(jk) + ze3min )   pk_bot(:,:) = jk-1
+         WHERE( pht(:,:) < pdepw_1d(jk) + ze3min )   pk_bot(:,:) = (jk-1) * pk_top(:,:)
       END DO
       !
       !                                !* vertical coordinate system
@@ -426,7 +450,7 @@ CONTAINS
         DO jj = 1, jpj
            DO ji = 1, jpi 
               DO jk = 1, jpkm1
-                 IF( pht(ji,jj) >= pdept(ji,jj,jk) ) pk_bot(ji,jj) = MAX( 2, jk )
+                 IF( pht(ji,jj) >= pdept(ji,jj,jk) ) pk_bot(ji,jj) = MAX( 2, jk ) * pk_top(ji,jj)
               END DO
            END DO
         END DO
