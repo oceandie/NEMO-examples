@@ -14,14 +14,16 @@ isloaded=`module -t list 2> >(grep scitools/default-current)`
 [ -z "$isloaded" ] && module load scitools/default-current
 
 for vco in s94 vqs ; do
+#vco=s94
 
-    #for hpg in sco prj djc ffl ffq fflr; do
-    for hpg in sco prj djc ffl ffq; do
+    for hpg in sco prj djc ffl ffq fflr; do
+    #for hpg in sco prj djc ffl ffq; do
+    #hpg=sco        
 
         for ini in pnt ave; do
-
-            #for cor in fp4 fp5; do
-            cor=fp4
+        
+            for cor in fp4 fp5; do
+            #cor=fp4
     
                 exp_dir=${testdir}"/"${vco}"_"${hpg}"_"${ini}"_"${cor}
                 nam_cfg=${exp_dir}"/namelist_cfg"
@@ -102,7 +104,7 @@ for vco in s94 vqs ; do
                 else
                    "... experiment already exists"
                 fi
-            #done
+            done
         done
     done
 done
