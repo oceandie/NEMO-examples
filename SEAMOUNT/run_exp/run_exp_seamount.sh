@@ -61,7 +61,7 @@ for vco in s94 vqs ; do
                        f90nml -g namdyn_hpg -v ln_hpg_ffr=.true. -v ln_hpg_ffr_vrt_quad=.true. -v ln_hpg_ffr_hor_cub=.true. -p ${nam_cfg}".tmp0" ${nam_cfg}".tmp1"
                        ;;
                      fflr)
-                       f90nml -g namdyn_hpg -v ln_hpg_ffr=.true. -v ln_hpg_ref=.true. -p ${nam_cfg}".tmp0" ${nam_cfg}".tmp1"
+                       f90nml -g namdyn_hpg -v ln_hpg_ffr=.true. -v ln_hpg_ref=.true. -v ln_hpg_ref_str=.true. -p ${nam_cfg}".tmp0" ${nam_cfg}".tmp1"
                    esac
 
                    # 3. Initial condition formulation
