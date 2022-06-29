@@ -57,7 +57,7 @@
    rn_hc        = 500       ! SH94 critical depth for transition to stretched coordinates [m]
    ! Paramaters for vqs-coordinate (ln_sco = .true.)
    ln_vqs       = .false.   ! activating vanishing quasi-sigma levels (TRUE)   
-   rn_rmax      = 0.3       ! maximum cut-off slope parameter value allowed 
+   rn_rmax      = 0.2       ! maximum cut-off slope parameter value allowed 
                             ! if using vqs-levels (0<r_max<1)
 !! INITIAL CONDITION
    nn_ini_cond  = 1         ! 0: Shchepetkin and McWilliams (2002)
@@ -72,7 +72,7 @@
 !-----------------------------------------------------------------------
    cn_exp      =  "SEAMOUNT_xxx"!  experience name
    nn_it000    =       1        !  first time step
-   nn_itend    =     21600      !  last  time step (180 days)
+   nn_itend    =     1200       !  last  time step (5 days)
    nn_date0    =  19000101
    nn_leapy    =      30        !  Leap year calendar (1) or not (0)
    nn_stock    =    48000       !  frequency of creation of a restart file (modulo referenced to 1)
@@ -305,6 +305,8 @@
    !
    ln_hpg_ref      = .false.       ! subtract a reference profile (T) or not (F) when 
                                    ! ln_hpg_ffr = .true.
+   nn_loc_ref_tgt  = 1             ! 1 = original Mike's algorithm; 
+                                   ! 2 = alternative Diego's algorithm;
    ln_hpg_ref_str  = .false.       ! T = ref. profile calculated considering 
                                    !     vertical variation in grid spacing
    ln_hpg_ref_ccs  = .false.       ! use ccs (T) or pure cubic (F) to interpolate 
