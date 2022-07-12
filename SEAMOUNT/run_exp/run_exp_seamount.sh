@@ -13,17 +13,17 @@ nam_tmp=${testdir}"/EXPREF/nam_cfg/namelist_cfg.steep.template"
 isloaded=`module -t list 2> >(grep scitools/default-current)`
 [ -z "$isloaded" ] && module load scitools/default-current
 
-for vco in s94 vqs ; do
-#vco=s94
+for vco in s94 vqs zco; do
+#vco=vqs
 
     for hpg in sco prj djc ffl ffq fflr; do
-    #for hpg in sco prj djc ffl ffq; do
-    #hpg=sco        
+    #hpg=fflr        
 
-        for ini in pnt ave; do
-        
-            for cor in fp4 fp5; do
-            #cor=fp4
+        #for ini in pnt ave; do
+        ini=pnt
+
+            #for cor in fp4 fp5; do
+            cor=fp4
     
                 exp_dir=${testdir}"/"${vco}"_"${hpg}"_"${ini}"_"${cor}
                 nam_cfg=${exp_dir}"/namelist_cfg"
@@ -45,8 +45,10 @@ for vco in s94 vqs ; do
                        f90nml -g namusr_def -v ln_sco=.true. -v ln_s_sh94=.true. -p ${nam_tmp} ${nam_cfg}".tmp0"
                        ;;
                      vqs)
-                       f90nml -g namusr_def -v ln_sco=.true. -v ln_vqs=.true. -p ${nam_tmp} ${nam_cfg}".tmp0"
+                       f90nml -g namusr_def -v ln_sco=.true. -v ln_s_sh94=.true. -v ln_vqs=.true. -v rn_rmax=0.2 -p ${nam_tmp} ${nam_cfg}".tmp0"
                        ;;
+                     zco)
+                       f90nml -g namusr_def -v ln_sco=.true. -v ln_s_sh94=.true. -v ln_vqs=.true. -v rn_rmax=0.0 -p ${nam_tmp} ${nam_cfg}".tmp0"
                    esac
 
                    # 2. HPG scheme
@@ -86,15 +88,19 @@ for vco in s94 vqs ; do
 
                    rm ${nam_cfg}".tmp"?
 
-                   # UPDATING file_def_nemo-oce.xml
-                   xml_exp=${exp_dir}"/file_def_nemo-oce.xml"
-                   sed -i 's%<field field_ref="rhd_hpg" />%%g' ${xml_exp}
-                   sed -i 's%<field field_ref="u_force_west" />%%g' ${xml_exp}
-                   sed -i 's%<field field_ref="u_force_upper" />%%g' ${xml_exp}
-                   sed -i 's%<field field_ref="v_force_south" />%%g' ${xml_exp}
-                   sed -i 's%<field field_ref="v_force_upper" />%%g' ${xml_exp}
-                   sed -i 's%<field field_ref="gdepw_hpg" />%%g' ${xml_exp}
-                   sed -i 's%<field field_ref="pressure" />%%g' ${xml_exp}
+                   case ${hpg} in
+                     sco|prj|djc)
+                       # UPDATING file_def_nemo-oce.xml
+                       xml_exp=${exp_dir}"/file_def_nemo-oce.xml"
+                       sed -i 's%<field field_ref="rhd_hpg" />%%g' ${xml_exp}
+                       sed -i 's%<field field_ref="u_force_west" />%%g' ${xml_exp}
+                       sed -i 's%<field field_ref="u_force_upper" />%%g' ${xml_exp}
+                       sed -i 's%<field field_ref="v_force_south" />%%g' ${xml_exp}
+                       sed -i 's%<field field_ref="v_force_upper" />%%g' ${xml_exp}
+                       sed -i 's%<field field_ref="gdepw_hpg" />%%g' ${xml_exp}
+                       sed -i 's%<field field_ref="pressure" />%%g' ${xml_exp}
+                       ;;
+                   esac
 
                    # LAUNCHING SIMULATION ------------
                    cd ${exp_dir}
@@ -104,7 +110,7 @@ for vco in s94 vqs ; do
                 else
                    "... experiment already exists"
                 fi
-            done
-        done
+            #done
+        #done
     done
 done
