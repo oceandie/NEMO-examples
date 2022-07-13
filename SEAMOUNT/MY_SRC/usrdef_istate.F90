@@ -99,7 +99,7 @@ CONTAINS
             IF(lwp) WRITE(numout,*) '                 Shchepetkin & McWilliams (2003) initial density profile'
             IF(lwp) WRITE(numout,*) '                 and linear EOS only function of temperature.'
             drho = 3._wp
-            dtem = drho / rn_a0
+            dtem = - drho / rn_a0
             delta = 500._wp
             T0 = 10._wp
          CASE (1)
