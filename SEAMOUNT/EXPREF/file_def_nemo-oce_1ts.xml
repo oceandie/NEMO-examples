@@ -14,7 +14,12 @@
 	  <field field_ref="toce" /> 
 	  <field field_ref="ssh"  />
       <field field_ref="e3t" />
-      <field field_ref="rhd_hpg" />     
+      <field field_ref="rhd_hpg" />
+      <field field_ref="rhd_ref" />
+      <field field_ref="jk_bot_ref" />
+      <field field_ref="jk_ref_for_tgt" />
+      <field field_ref="zfld_ref_on_tgt" />
+      <field field_ref="p_fld_tgt" />
 	</file>
 
 	<file id="file3" name_suffix="_grid_U" description="ocean U grid variables" >
@@ -37,7 +42,7 @@
 	
 	<file id="file5" name_suffix="_grid_W" description="ocean W grid variables" >
 	  <field field_ref="woce" />
-      <field field_ref="gdepw_hpg" />
+      <field field_ref="e3w" />
       <field field_ref="pressure" />
 	</file>
 

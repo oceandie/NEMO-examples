@@ -276,6 +276,11 @@ that are available in the tidal-forcing implementation (see
 
   <field_group id="HPG_FFR_T" grid_ref="grid_T_3D" >
     <field id="rhd_hpg" long_name="in situ density anomaly" unit="non-dimensional" />
+    <field id="rhd_ref" long_name="in situ local reference density" unit="non-dimensional" />
+    <field id="jk_bot_ref" long_name="for debugging" unit="non-dimensional" grid_ref="grid_T_2D" />
+    <field id="jk_ref_for_tgt" long_name="for debugging" unit="non-dimensional" />
+    <field id="zfld_ref_on_tgt" long_name="for debugging" unit="non-dimensional" />
+    <field id="p_fld_tgt" long_name="for debugging" unit="non-dimensional" />
   </field_group>
 
   <field_group id="HPG_FFR_U" grid_ref="grid_U_3D" >

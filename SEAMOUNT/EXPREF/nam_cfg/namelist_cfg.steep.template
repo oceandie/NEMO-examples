@@ -195,9 +195,9 @@
 !-----------------------------------------------------------------------
 &nameos        !   ocean Equation Of Seawater                           (default: NO selection)
 !-----------------------------------------------------------------------
-   ln_teos10   = .false.         !  = Use TEOS-10
-   ln_eos80    = .true.          !  = Use EOS80
-   ln_seos     = .false.         !  = Use S-EOS (simplified Eq.)
+   ln_teos10   = .false.         !  = Use TEOS-10  
+   ln_eos80    = .true.          !  = Use EOS80    For Ezer et al 2002 SEAMOUNT init use this
+   ln_seos     = .false.         !  = Use S-EOS (simplified Eq.) For SM2003 SEAMOUNT init use this
                                  !
    !                     ! S-EOS coefficients (ln_seos=T):
    !                             !  rd(T,S,Z)*rho0 = -a0*(1+.5*lambda*dT+mu*Z+nu*dS)*dT+b0*dS
@@ -470,7 +470,7 @@
 !   ln_nnogather =  .true.  !  activate code to avoid mpi_allgather use at the northfold
    jpni        =   0       !  number of processors following i (set automatically if < 1), see also ln_listonly = T
    jpnj        =   0       !  number of processors following j (set automatically if < 1), see also ln_listonly = T
-!   nn_hls      =   1       !  halo width (applies to both rows and columns)
+   nn_hls      =   1       !  halo width (applies to both rows and columns)
 /
 !-----------------------------------------------------------------------
 &namctl        !   Control prints                                       (default: OFF)
