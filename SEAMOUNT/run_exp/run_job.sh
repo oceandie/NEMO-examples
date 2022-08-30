@@ -1,7 +1,7 @@
 #!/bin/bash --login
 
 #PBS -N SEAMOUNT
-#PBS -l walltime=00:30:00
+#PBS -l walltime=02:00:00
 #PBS -j oe
 #PBS -q normal
 #PBS -l select=1
@@ -16,6 +16,8 @@
 
   OCORES=4
   O_PER_NODE=4
+  #OCORES=1
+  #O_PER_NODE=1
 
   echo "time aprun -b -n ${OCORES} -N ${O_PER_NODE} ./nemo" 
   time aprun -b -n ${OCORES} -N ${O_PER_NODE} ./nemo
