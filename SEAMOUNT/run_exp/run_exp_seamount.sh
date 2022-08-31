@@ -1,7 +1,11 @@
 #!/bin/bash
 
-# INPUT section --------------------------------------------------------------------
-outfreq="1h" # "1ts"
+#-------------------------------------------------------------------------------------
+# INPUT section 
+exp_cfg="2"  # 0: Shchepetkin and McWilliams (2002)
+             # 1: Ezer, Arango and Shchepetkin (2002)
+             # 2: Amy Young
+outfreq="1ts" # "1h"
 basedir=${PWD}
 nemodir="/projects/jmmp/dbruciaf/NEMO/CHECKOUTS_4.0/NEMO_4.0-TRUNK_r14960_HPG"
 testdir=${nemodir}"/tests/SEAMOUNT"
@@ -9,17 +13,57 @@ exp_ref=${testdir}"/EXPREF"
 nemoexe=${testdir}"/BLD/bin/nemo.exe"
 nam_tmp=${testdir}"/EXPREF/nam_cfg/namelist_cfg.steep.template"
 
+#-------------------------------------------------------------------------------------
 # SETTING the environment for python
 isloaded=`module -t list 2> >(grep scitools/default-current)`
 [ -z "$isloaded" ] && module load scitools/default-current
 
-#for vco in s94 vqs zco; do
-for vco in s94 vqs; do
-#vco=s94
+#-------------------------------------------------------------------------------------
+# SETTING the general experimental setup in the namelist
+
+f90nml -g namusr_def -v nn_ini_cond=${exp_cfg} -p ${nam_tmp} "namcfg.tmpA"
+
+case ${exp_cfg} in
+  0)
+    # 1. EOS
+    f90nml -g nameos -v ln_seos=.true. -p "namcfg.tmpA" "namcfg.cfg"
+    ;;
+  1)
+    # 1. EOS
+    f90nml -g nameos -v ln_eos80=.true. -p "namcfg.tmpA" "namcfg.cfg"
+    ;; 
+  2) 
+    # 1. Model domain and mesh
+    f90nml -g namusr_def -v rn_xdim=380.0 -v rn_ydim=288.0 -v rn_dx=4000.0 -v rn_dz=450. -p "namcfg.tmpA" "namcfg.tmpB"
+    # 2. Initial condition
+    f90nml -g namusr_def -v rn_initrho=0.1 -v rn_s=2.0 -p "namcfg.tmpB" "namcfg.tmpC"
+    # 3. Baroclinic timestep
+    f90nml -g namdom -v rn_Dt=432. -p "namcfg.tmpC" "namcfg.tmpD"
+    # 4. EOS
+    f90nml -g nameos -v ln_eeos=.true. -p "namcfg.tmpD" "namcfg.tmpE"
+    # 5 Momentum advection scheme
+    f90nml -g namdyn_adv -v ln_dynadv_vec=.false. -v ln_dynadv_cen2=.true. -p "namcfg.tmpE" "namcfg.tmpF"
+    # 6. Vorticity / Coriolis scheme
+    f90nml -g namdyn_vor -v ln_dynvor_een=.false. -v ln_dynvor_ene=.true. -p "namcfg.tmpF" "namcfg.tmpG"
+    # 7. Barotropic timestep
+    f90nml -g namdyn_spg -v nn_e=36 -p "namcfg.tmpG" "namcfg.tmpH"
+    # 8. Lateral viscosity
+    f90nml -g namdyn_ldf -v rn_Uv=2.0 -p "namcfg.tmpH" "namcfg.tmpI"
+    # 9. Vertical diff/visc
+    f90nml -g namzdf -v rn_avm0=0.0 -v rn_avt0=0.0 -p "namcfg.tmpI" "namcfg.cfg"
+esac
+
+rm namcfg.tmp?
+nam_tmp="${basedir}/namcfg.cfg"
+
+#-------------------------------------------------------------------------------------
+#for vco in sig s94 vqs zco; do
+#for vco in sig s94 vqs; do
+vco=sig
 
     #for hpg in sco prj djc ffl ffq fflr; do
-    for hpg in djc djr ffl fflr; do
-    #hpg=djr     
+    #for hpg in djc djr ffl fflr; do
+    hpg=djr     
 
         #for ini in pnt ave; do
         ini=pnt
@@ -27,8 +71,8 @@ for vco in s94 vqs; do
             #for cor in fp4 fp5; do
             cor=fp4
     
-                expname="SEAMOUNT_${vco}_${hpg}_${ini}_${cor}"
-                exp_dir=${testdir}"/"${vco}"_"${hpg}"_"${ini}"_"${cor}"_"${outfreq}
+                expname="SEAMOUNT_cfg_${exp_cfg}_${vco}_${hpg}_${ini}_${cor}"
+                exp_dir=${testdir}"/cfg_${exp_cfg}_${vco}_${hpg}_${ini}_${cor}_${outfreq}"
                 nam_cfg=${exp_dir}"/namelist_cfg"
             
                 if [ ! -d "${exp_dir}" ]; then 
@@ -46,7 +90,7 @@ for vco in s94 vqs; do
                    # 1. Run length
                    case ${outfreq} in
                      1ts)
-                       nn_itend=5 # 1 timesteps / 3 days 
+                       nn_itend=1 # 1 timesteps
                        ;;
                      1h)
                        nn_itend=64800 # 180 days #10800 # 30 days
@@ -56,6 +100,9 @@ for vco in s94 vqs; do
 
                    # 2. Vertical coordinates
                    case ${vco} in
+                     sig)
+                       f90nml -g namusr_def -v ln_sco=.true. -p ${nam_cfg}".tmp1" ${nam_cfg}".tmp2"
+                       ;;
                      s94)
                        f90nml -g namusr_def -v ln_sco=.true. -v ln_s_sh94=.true. -p ${nam_cfg}".tmp1" ${nam_cfg}".tmp2"
                        ;;
@@ -151,5 +198,7 @@ for vco in s94 vqs; do
                 fi
             #done
         #done
-    done
-done
+    #done
+#done
+
+rm ${nam_tmp}

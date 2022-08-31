@@ -20,7 +20,7 @@ MODULE usrdef_istate
    USE in_out_manager ! I/O manager
    USE lib_mpp        ! MPP library
    USE lbclnk         ! ocean lateral boundary conditions (or mpp link)
-   USE eosbn2, ONLY: rn_a0, rho0 
+   USE eosbn2 , ONLY: rn_a0 
    USE usrdef_nam
    
    IMPLICIT NONE
@@ -29,8 +29,8 @@ MODULE usrdef_istate
    PUBLIC   usr_def_istate       ! called in istate.F90
    PUBLIC   usr_def_istate_ssh   ! called by domqco.F90
 
-   REAL(wp) :: T0, dtem, drho, delta ! used to set the initial potential temperature profile
-   REAL(wp) :: S0                    ! used to set the initial practical salinity profile 
+   REAL(wp)         :: T0, dtem, delta, drho ! used to set the initial potential temperature profile
+   REAL(wp)         :: S0                     ! used to set the initial practical salinity profile 
 
    !! * Substitutions
 #  include "do_loop_substitute.h90"
@@ -83,7 +83,8 @@ CONTAINS
       REAL(wp), DIMENSION(jpi,jpj,jpk)     , INTENT(  out) ::   pu      ! i-component of the velocity  [m/s] 
       REAL(wp), DIMENSION(jpi,jpj,jpk)     , INTENT(  out) ::   pv      ! j-component of the velocity  [m/s] 
       !
-      INTEGER                                              :: ji, jj, jk  ! dummy loop indices
+      REAL(wp), DIMENSION(jpi,jpj,jpk)                     ::   T_ref, T_prt
+      INTEGER                                              ::   ji, jj, jk  ! dummy loop indices
       !!----------------------------------------------------------------------
       !
       IF(lwp) WRITE(numout,*)
@@ -108,19 +109,36 @@ CONTAINS
             dtem  = 15._wp
             delta = 1000._wp
             T0 = 5._wp
+         CASE (2)
+            IF(lwp) WRITE(numout,*) '                 Amy Young setup for initial density profile and exponential EOS'
+            delta = 1000._wp
+            T0 = 28._wp
+            DO jk = 1, jpk
+               T_ref(:,:,jk) = T0 + (rn_drho/rn_a0) * EXP(-pdept(:,:,jk)/delta)
+            END DO
+            IF (lwp) WRITE(numout,*) 'Setting exponential initial density perturbation'
+            DO jk = 1, jpk
+               T_prt(:,:,jk) = (rn_initrho/rn_a0) * EXP(-pdept(:,:,jk)/delta )
+            END DO
       END SELECT
       !
-      IF (ln_init_pt_val) THEN
-         DO_3D (0, 0, 0, 0, 1, jpk-1 ) 
-            pts(ji,jj,jk,jp_tem) = ptmask(ji,jj,jk) * theta_initial( pdept(ji,jj,jk) )  
-         END_3D
-      ELSE ! grid point mean values 
-         CALL usr_def_ist_3d ( ptmask, pts(:,:,:, jp_tem) )    
-      END IF
+      IF (nn_ini_cond < 2) THEN
+         IF (ln_init_pt_val) THEN
+            DO_3D (0, 0, 0, 0, 1, jpk-1 ) 
+               pts(ji,jj,jk,jp_tem) = ptmask(ji,jj,jk) * theta_initial( pdept(ji,jj,jk) )  
+            END_3D
+         ELSE ! grid point mean values 
+            CALL usr_def_ist_3d ( ptmask, pts(:,:,:, jp_tem) )    
+         END IF
+      ELSE 
+         DO jk = 1, jpk
+            pts(:,:,jk,jp_tem) = ptmask(:,:,jk) * (T_ref(:,:,jk) + T_prt(:,:,jk))
+         END DO
+      ENDIF
       CALL lbc_lnk ( 'usr_def_istate', pts(:,:,:,jp_tem), 'T', 1._wp )
 
       S0 = 35._wp
-      pts(:,:,:,jp_sal) = 35._wp * ptmask(:,:,:)
+      pts(:,:,:,jp_sal) = S0 * ptmask(:,:,:)
 
       !IF(lwp) WRITE(numout,*) '                     *) Estimated Burger number              rn_Snum  = ', rn_Snum
       ! Estimating Burger Number for initial density profile:

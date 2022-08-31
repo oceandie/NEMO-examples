@@ -55,8 +55,12 @@ MODULE usrdef_nam
    !! INITIAL CONDITION
    INTEGER,  PUBLIC :: nn_ini_cond ! 0: Shchepetkin and McWilliams (2002)
                                    ! 1: Ezer, Arango and Shchepetkin (2002)
-
+                                   ! 2: Amy's original setup
    LOGICAL,  PUBLIC :: ln_init_pt_val, ln_init_curved
+   ! Paramaters for Amy's setup (nn_ini_cond = 2)
+   REAL(wp), PUBLIC :: rn_initrho, rn_s  
+   !
+   REAL(wp), PUBLIC :: rn_drho
 
    !!----------------------------------------------------------------------
    !! NEMO/OCE 4.0 , NEMO Consortium (2018)
@@ -89,10 +93,11 @@ CONTAINS
       INTEGER                       ::   ios    ! Local integer
       INTEGER                       ::   ioptio ! Local string
       !!
-      NAMELIST/namusr_def/ rn_xdim  , rn_ydim  , rn_bot_max , rn_smnt_H     , rn_smnt_L      , & 
-         &                 rn_fplane, rn_dx    , rn_dz      , ln_zco        , ln_zps         , &
-         &                 ln_sco   , ln_s_sh94, rn_theta   , rn_bb         , rn_hc          , &
-         &                 ln_vqs   , rn_rmax  , nn_ini_cond, ln_init_pt_val, ln_init_curved
+      NAMELIST/namusr_def/ rn_xdim   , rn_ydim  , rn_bot_max , rn_smnt_H     , rn_smnt_L      , & 
+         &                 rn_fplane , rn_dx    , rn_dz      , ln_zco        , ln_zps         , &
+         &                 ln_sco    , ln_s_sh94, rn_theta   , rn_bb         , rn_hc          , &
+         &                 ln_vqs    , rn_rmax  , nn_ini_cond, ln_init_pt_val, ln_init_curved , &
+         &                 rn_initrho, rn_s      
       !!----------------------------------------------------------------------
       !
       READ  ( numnam_cfg, namusr_def, IOSTAT = ios, ERR = 902 )
@@ -107,14 +112,18 @@ CONTAINS
       !                        ! Set the lateral boundary condition of the global domain
       SELECT CASE (nn_ini_cond)
          CASE (0)              ! Shchepetkin and McWilliams (2002):
-            ldIperio = .TRUE.  ! basin with cyclic Est-West
+            ldIperio = .TRUE.  ! basin with periodic Est-West
+            ldJperio = .FALSE.
          CASE (1)              ! Ezer, Arango and Shchepetkin (2002):   
-            !ldIperio = .FALSE.! basin with closed boundaries
-            ldIperio = .TRUE.
+            !ldIperio = .FALSE. ! basin with closed boundaries
+            !ldJperio = .FALSE.
+            ldIperio = .TRUE.  ! For testing now we use periodic boundaries
+            ldJperio = .TRUE.
+         CASE (2)              ! Amy's original setup:   
+            ldIperio = .TRUE.  ! basin with periodic boundaries
+            ldJperio = .TRUE.
       END SELECT
       
-      !ldJperio = .FALSE.
-      ldJperio = .TRUE.
       ldNFold  = .FALSE.
       cdNFtype = '-'
 
@@ -123,7 +132,11 @@ CONTAINS
       kpi = INT(  1000._wp * rn_xdim / rn_dx ) + 1
       kpj = INT(  1000._wp * rn_ydim / rn_dx ) + 1
       kpk = INT(  rn_bot_max  / rn_dz ) + 1
-      
+   
+      ! Calculating the density difference from the given Burger Number
+      ! rn_drho =  rho_ref * depth * (S * f * L)^2 / g
+      rn_drho = rho0 * rn_bot_max * (rn_s*rn_fplane*rn_smnt_L/rn_bot_max)** 2._wp / grav
+ 
       ! Check vertical coordinate options
       ioptio = 0           
       IF( ln_zco      )   ioptio = ioptio + 1
@@ -171,6 +184,10 @@ CONTAINS
            WRITE(numout,*) '           Shchepetkin and McWilliams (2002)'
          ELSE IF( nn_ini_cond == 1 ) THEN
            WRITE(numout,*) '           Ezer, Arango and Shchepetkin (2002)'
+         ELSE IF( nn_ini_cond == 2 ) THEN
+           WRITE(numout,*) '           Amy Young setup'
+           WRITE(numout,*) '               rn_initrho  = ', rn_initrho
+           WRITE(numout,*) '               rn_s        = ', rn_s
          ENDIF         
 
          IF ( ln_init_pt_val ) THEN 

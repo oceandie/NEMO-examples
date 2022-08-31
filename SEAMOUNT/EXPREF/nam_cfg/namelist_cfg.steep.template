@@ -66,6 +66,9 @@
                             ! FALSE: grid values calculated from grid cell averages
    ln_init_curved = .false. ! TRUE:  grid cells curve with the bathymetry 
                             ! FALSE: grid cells boundaries interpolated from T cell points  
+   ! Paramaters for Amy's setup (nn_ini_cond = 2)
+   rn_initrho     = 0.1     ! Initial density perturbation magnitude
+   rn_s           = 2.0     ! Burger number (to control background density profile)
 /
 !-----------------------------------------------------------------------
 &namrun        !   parameters of the run
@@ -196,8 +199,9 @@
 &nameos        !   ocean Equation Of Seawater                           (default: NO selection)
 !-----------------------------------------------------------------------
    ln_teos10   = .false.         !  = Use TEOS-10  
-   ln_eos80    = .true.          !  = Use EOS80    For Ezer et al 2002 SEAMOUNT init use this
+   ln_eos80    = .false.          !  = Use EOS80    For Ezer et al 2002 SEAMOUNT init use this
    ln_seos     = .false.         !  = Use S-EOS (simplified Eq.) For SM2003 SEAMOUNT init use this
+   ln_eeos     = .false.          !  = Use E-EOS (exponential eq.) For Amy's original setup
                                  !
    !                     ! S-EOS coefficients (ln_seos=T):
    !                             !  rd(T,S,Z)*rho0 = -a0*(1+.5*lambda*dT+mu*Z+nu*dS)*dT+b0*dS
