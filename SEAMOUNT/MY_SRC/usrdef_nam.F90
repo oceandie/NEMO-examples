@@ -130,7 +130,11 @@ CONTAINS
       !
       ! Global Domain size:
       kpi = INT(  1000._wp * rn_xdim / rn_dx ) + 1
-      kpj = INT(  1000._wp * rn_ydim / rn_dx ) + 1
+      IF( nn_ini_cond == 2 ) THEN
+        kpj = INT(  1000._wp * rn_ydim / rn_dx ) + 2
+      ELSE
+        kpj = INT(  1000._wp * rn_ydim / rn_dx ) + 1
+      ENDIF
       kpk = INT(  rn_bot_max  / rn_dz ) + 1
    
       ! Calculating the density difference from the given Burger Number

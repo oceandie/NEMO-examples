@@ -33,24 +33,26 @@ case ${exp_cfg} in
     f90nml -g nameos -v ln_eos80=.true. -p "namcfg.tmpA" "namcfg.cfg"
     ;; 
   2) 
-    # 1. Model domain and mesh
+    # 1.  Model domain and mesh
     f90nml -g namusr_def -v rn_xdim=380.0 -v rn_ydim=288.0 -v rn_dx=4000.0 -v rn_dz=450. -p "namcfg.tmpA" "namcfg.tmpB"
-    # 2. Initial condition
+    # 2.  Initial condition
     f90nml -g namusr_def -v rn_initrho=0.1 -v rn_s=2.0 -p "namcfg.tmpB" "namcfg.tmpC"
-    # 3. Baroclinic timestep
+    # 3.  Baroclinic timestep
     f90nml -g namdom -v rn_Dt=432. -p "namcfg.tmpC" "namcfg.tmpD"
-    # 4. EOS
+    # 4.  EOS
     f90nml -g nameos -v ln_eeos=.true. -p "namcfg.tmpD" "namcfg.tmpE"
-    # 5 Momentum advection scheme
+    # 5.  Momentum advection scheme
     f90nml -g namdyn_adv -v ln_dynadv_vec=.false. -v ln_dynadv_cen2=.true. -p "namcfg.tmpE" "namcfg.tmpF"
-    # 6. Vorticity / Coriolis scheme
+    # 6.  Vorticity / Coriolis scheme
     f90nml -g namdyn_vor -v ln_dynvor_een=.false. -v ln_dynvor_ene=.true. -p "namcfg.tmpF" "namcfg.tmpG"
-    # 7. Barotropic timestep
+    # 7.  Barotropic timestep
     f90nml -g namdyn_spg -v nn_e=36 -p "namcfg.tmpG" "namcfg.tmpH"
-    # 8. Lateral viscosity
+    # 8.  Lateral viscosity
     f90nml -g namdyn_ldf -v rn_Uv=2.0 -p "namcfg.tmpH" "namcfg.tmpI"
-    # 9. Vertical diff/visc
-    f90nml -g namzdf -v rn_avm0=0.0 -v rn_avt0=0.0 -p "namcfg.tmpI" "namcfg.cfg"
+    # 9.  Vertical diff/visc
+    f90nml -g namzdf -v rn_avm0=0.0 -v rn_avt0=0.0 -p "namcfg.tmpI" "namcfg.tmpJ"
+    # 10. MPI halos
+    f90nml -g nammpp -v nn_hls=2 -p "namcfg.tmpJ" "namcfg.cfg"
 esac
 
 rm namcfg.tmp?
@@ -63,7 +65,7 @@ vco=sig
 
     #for hpg in sco prj djc ffl ffq fflr; do
     #for hpg in djc djr ffl fflr; do
-    hpg=djr     
+    hpg=ffq    
 
         #for ini in pnt ave; do
         ini=pnt
