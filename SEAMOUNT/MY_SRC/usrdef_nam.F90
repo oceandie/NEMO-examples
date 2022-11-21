@@ -137,10 +137,12 @@ CONTAINS
       ENDIF
       kpk = INT(  rn_bot_max  / rn_dz ) + 1
    
-      ! Calculating the density difference from the given Burger Number
-      ! rn_drho =  rho_ref * depth * (S * f * L)^2 / g
-      rn_drho = rho0 * rn_bot_max * (rn_s*rn_fplane*rn_smnt_L/rn_bot_max)** 2._wp / grav
- 
+      IF( nn_ini_cond == 2 ) THEN
+        ! Calculating the density difference from the given Burger Number
+        ! rn_drho =  rho_ref * depth * (S * f * L)^2 / g
+        rn_drho = 1000. * rn_bot_max * (rn_s*rn_fplane*rn_smnt_L*1000./rn_bot_max)** 2._wp / grav
+      ENDIF 
+
       ! Check vertical coordinate options
       ioptio = 0           
       IF( ln_zco      )   ioptio = ioptio + 1
@@ -190,8 +192,10 @@ CONTAINS
            WRITE(numout,*) '           Ezer, Arango and Shchepetkin (2002)'
          ELSE IF( nn_ini_cond == 2 ) THEN
            WRITE(numout,*) '           Amy Young setup'
+           WRITE(numout,*) '               rho0        = 1000. kg/m3'
            WRITE(numout,*) '               rn_initrho  = ', rn_initrho
            WRITE(numout,*) '               rn_s        = ', rn_s
+           WRITE(numout,*) '               rn_drho     = ', rn_drho
          ENDIF         
 
          IF ( ln_init_pt_val ) THEN 
