@@ -5,7 +5,7 @@
 exp_cfg="2"  # 0: Shchepetkin and McWilliams (2002)
              # 1: Ezer, Arango and Shchepetkin (2002)
              # 2: Amy Young
-outfreq="1ts" # "1h"
+outfreq="1h" # "1ts"
 basedir=${PWD}
 nemodir="/projects/jmmp/dbruciaf/NEMO/CHECKOUTS_4.0/NEMO_4.0-TRUNK_r14960_HPG"
 testdir=${nemodir}"/tests/SEAMOUNT"
@@ -63,9 +63,9 @@ nam_tmp="${basedir}/namcfg.cfg"
 #for vco in sig s94 vqs; do
 vco=sig
 
-    #for hpg in sco prj djc ffl ffq fflr; do
+    for hpg in sco prj djc ffl ffq fflr; do
     #for hpg in djc djr ffl fflr; do
-    hpg=ffq    
+    #hpg=ffq    
 
         #for ini in pnt ave; do
         ini=pnt
@@ -94,8 +94,12 @@ vco=sig
                      1ts)
                        nn_itend=1 # 1 timesteps
                        ;;
-                     1h)
-                       nn_itend=64800 # 180 days #10800 # 30 days
+                     1h) # 180 days
+                       if [ "${exp_cfg}" == 2 ]; then
+                          nn_itend=36000 # rn_Dt=432 => 200 time-steps per day
+                       else
+                          nn_itend=43200 # rn_Dt=360 => 240 time-steps per day
+                       fi
                        ;;
                    esac
                    f90nml -g namrun -v nn_itend=${nn_itend} -p ${nam_cfg}".tmp0" ${nam_cfg}".tmp1"  
@@ -134,11 +138,11 @@ vco=sig
                    esac
  
                    # Computational halo
-                   if [ "${hpg}" == djr ]; then
+                   #if [ "${hpg}" == djr ] || [ "${hpg}" == ffq ]; then
                       f90nml -g nammpp -v nn_hls=2 -p ${nam_cfg}".tmp3" ${nam_cfg}".tmp4"
-                   else
-                      cp ${nam_cfg}".tmp3" ${nam_cfg}".tmp4"
-                   fi
+                   #else
+                   #   cp ${nam_cfg}".tmp3" ${nam_cfg}".tmp4"
+                   #fi
 
                    # 4. Initial condition formulation
                    case ${ini} in
@@ -200,7 +204,7 @@ vco=sig
                 fi
             #done
         #done
-    #done
+    done
 #done
 
 rm ${nam_tmp}
