@@ -2,10 +2,15 @@
 
 #-------------------------------------------------------------------------------------
 # INPUT section 
-exp_cfg="2"  # 0: Shchepetkin and McWilliams (2002)
+exp_cfg="4"  # 0: Shchepetkin and McWilliams (2002)
              # 1: Ezer, Arango and Shchepetkin (2002)
              # 2: Amy Young
-outfreq="1h" # "1ts"
+             # 3: Domain: Ezer et al 2002 
+             #    Initialisation: Amy Young
+             # 4: Domain: Amy Young
+             #    Initialisation: Ezer et al. 2022 
+outfreq="3h" # "1ts" "1h" "3h" "1d"
+expdays=180  # number of days we want to run our simulations
 basedir=${PWD}
 nemodir="/projects/jmmp/dbruciaf/NEMO/CHECKOUTS_4.0/NEMO_4.0-TRUNK_r14960_HPG"
 testdir=${nemodir}"/tests/SEAMOUNT"
@@ -24,15 +29,20 @@ isloaded=`module -t list 2> >(grep scitools/default-current)`
 f90nml -g namusr_def -v nn_ini_cond=${exp_cfg} -p ${nam_tmp} "namcfg.tmpA"
 
 case ${exp_cfg} in
-  0)
+  0) # Shchepetkin and McWilliams (2002)
     # 1. EOS
     f90nml -g nameos -v ln_seos=.true. -p "namcfg.tmpA" "namcfg.cfg"
     ;;
-  1)
+  1) # Ezer, Arango and Shchepetkin (2002)
     # 1. EOS
     f90nml -g nameos -v ln_eos80=.true. -p "namcfg.tmpA" "namcfg.cfg"
     ;; 
-  2) 
+  2) # Amy Young
+    # 0.  Forcing model output with freq of 3h since xios on-line averaging requires that 
+    #     the period of averaging is a multiple of the timestep
+    if [ "${outfreq}" != "3h" ] && [ "${outfreq}" != "1d" ]; then 
+       outfreq="3h"
+    fi
     # 1.  Model domain and mesh
     f90nml -g namusr_def -v rn_xdim=380.0 -v rn_ydim=288.0 -v rn_dx=4000.0 -v rn_dz=450. -p "namcfg.tmpA" "namcfg.tmpB"
     # 2.  Initial condition
@@ -53,6 +63,19 @@ case ${exp_cfg} in
     f90nml -g namzdf -v rn_avm0=0.0 -v rn_avt0=0.0 -p "namcfg.tmpI" "namcfg.tmpJ"
     # 10. MPI halos
     f90nml -g nammpp -v nn_hls=2 -p "namcfg.tmpJ" "namcfg.cfg"
+    ;;
+  3) # Domain: Ezer et al 2002, Initialisation: Amy Young
+    # 1.  Initial condition
+    f90nml -g namusr_def -v rn_initrho=0.1 -v rn_s=2.0 -p "namcfg.tmpA" "namcfg.tmpB"
+    # 2.  EOS
+    f90nml -g nameos -v ln_eeos=.true. -p "namcfg.tmpB" "namcfg.cfg"   
+    ;;
+  4) # Domain: Amy Young, Initialisation: Ezer et al 2002
+    # 1.  Model domain and mesh
+    f90nml -g namusr_def -v rn_xdim=380.0 -v rn_ydim=288.0 -v rn_dx=4000.0 -v rn_dz=450. -p "namcfg.tmpA" "namcfg.tmpB"
+    # 2. EOS
+    f90nml -g nameos -v ln_eos80=.true. -p "namcfg.tmpB" "namcfg.cfg"
+    ;;
 esac
 
 rm namcfg.tmp?
@@ -63,12 +86,9 @@ nam_tmp="${basedir}/namcfg.cfg"
 #for vco in sig s94 vqs; do
 vco=sig
 
-    for hpg in sco prj djc ffl ffq fflr; do
-    #for hpg in djc djr ffl fflr; do
-    #hpg=ffq    
+    for hpg in sco prj djc djcr ffl ffq_cub ffq_ccs fflr; do
 
-        #for ini in pnt ave; do
-        ini=pnt
+        for ini in pnt ave; do
 
             #for cor in fp4 fp5; do
             cor=fp4
@@ -90,18 +110,17 @@ vco=sig
                    f90nml -g namrun -v cn_exp=${expname} -p ${nam_tmp} ${nam_cfg}".tmp0"
 
                    # 1. Run length
-                   case ${outfreq} in
-                     1ts)
-                       nn_itend=1 # 1 timesteps
-                       ;;
-                     1h) # 180 days
-                       if [ "${exp_cfg}" == 2 ]; then
-                          nn_itend=36000 # rn_Dt=432 => 200 time-steps per day
-                       else
-                          nn_itend=43200 # rn_Dt=360 => 240 time-steps per day
-                       fi
-                       ;;
-                   esac
+                   if [ "${outfreq}" == "1ts" ]; then
+                      nn_itend=1 # 1 timesteps
+                   else
+                      secxday=86400
+                      if [ "${exp_cfg}" == "2" ]; then
+                         rn_rDT=432
+                      else
+                         rn_rDT=360
+                      fi
+                      nn_itend=$((secxday/rn_rDT*expdays))
+                   fi
                    f90nml -g namrun -v nn_itend=${nn_itend} -p ${nam_cfg}".tmp0" ${nam_cfg}".tmp1"  
 
                    # 2. Vertical coordinates
@@ -124,14 +143,17 @@ vco=sig
                      sco|prj|djc)
                        f90nml -g namdyn_hpg -v ln_hpg_${hpg}=.true. -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
                        ;;
-                     djr)
+                     djcr)
                        f90nml -g namdyn_hpg -v ln_hpg_djr=.true. -v ln_hpg_ref=.true. -v ln_hpg_ref_str=.true. -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
                        ;;
                      ffl)
                        f90nml -g namdyn_hpg -v ln_hpg_ffr=.true. -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
                        ;;
-                     ffq)
+                     ffq_cub)
                        f90nml -g namdyn_hpg -v ln_hpg_ffr=.true. -v ln_hpg_ffr_vrt_quad=.true. -v ln_hpg_ffr_hor_cub=.true. -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
+                       ;;
+                     ffq_ccs)
+                       f90nml -g namdyn_hpg -v ln_hpg_ffr=.true. -v ln_hpg_ffr_vrt_quad=.true. -v ln_hpg_ffr_hor_ccs=.true. -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
                        ;;
                      fflr)
                        f90nml -g namdyn_hpg -v ln_hpg_ffr=.true. -v ln_hpg_ref=.true. -v ln_hpg_ref_str=.true. -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
@@ -178,7 +200,7 @@ vco=sig
                        sed -i 's%<field field_ref="e3w" />%%g' ${xml_exp}
                        sed -i 's%<field field_ref="pressure" />%%g' ${xml_exp}
                        ;;
-                     djr)
+                     djcr)
                        # UPDATING file_def_nemo-oce.xml
                        sed -i 's%<field field_ref="u_force_west" />%%g' ${xml_exp}
                        sed -i 's%<field field_ref="u_force_upper" />%%g' ${xml_exp}
@@ -186,7 +208,7 @@ vco=sig
                        sed -i 's%<field field_ref="v_force_upper" />%%g' ${xml_exp}
                        ;;
                    esac
-                   if [ "${outfreq}" != "1ts" ] && [ "${hpg}" != fflr ] && [ "${hpg}" != djr ]; then
+                   if [ "${outfreq}" != "1ts" ] && [ "${hpg}" != fflr ] && [ "${hpg}" != djcr ]; then
                       sed -i 's%<field field_ref="rhd_ref" />%%g' ${xml_exp}
                       sed -i 's%<field field_ref="jk_bot_ref" />%%g' ${xml_exp}
                       sed -i 's%<field field_ref="jk_ref_for_tgt" />%%g' ${xml_exp}
@@ -203,7 +225,7 @@ vco=sig
                    echo "   ... experiment already exists"
                 fi
             #done
-        #done
+        done
     done
 #done
 
