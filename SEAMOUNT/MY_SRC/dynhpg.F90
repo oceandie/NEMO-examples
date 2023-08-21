@@ -101,17 +101,23 @@ MODULE dynhpg
    REAL(wp)    ::   aco_bc_z_hor, bco_bc_z_hor, aco_bc_z_srf        !:    " 
    REAL(wp)    ::   bco_bc_z_srf, aco_bc_z_bot, bco_bc_z_bot        !:    "
 
-   LOGICAL     ::   ln_hpg_ref      ! T => reference profile is subtracted; 
-                                    ! F => no reference profile subtracted
-   LOGICAL     ::   ln_hpg_ref_str  ! T => reference profile calculated taking into
-                                    !      account vertical variation in grid spacing
-   LOGICAL     ::   ln_hpg_ref_ccs  ! T => constrained cubic, 
-                                    ! F => simple cubic used for interpolation of reference 
-                                    !      to target profiles   
-   LOGICAL     ::   ln_hpg_ref_off  ! only applies if ln_hpg_ref_ccs = T; 
-                                    ! T => use off-centred simple cubic at upper & lower boundaries 
-   INTEGER     ::   nn_loc_ref_tgt  ! 1 = original Mike's algorithm; 
-                                    ! 2 = alternative Diego's algorithm;
+   LOGICAL     ::   ln_hpg_ref       ! T => reference profile is subtracted; 
+                                     !      in the case of the FFR scheme, the ref profile is
+                                     !      subtracted for computations on all faces 
+                                     ! F => no reference profile subtracted
+   LOGICAL     ::   ln_hpg_ffr_ref_2 ! Only for the FFR scheme:
+                                     !      T => reference profile is subtracted only for 
+                                     !           "horizontal" interpolation on upper & lower faces
+                                     !      F => reference profile is subtracted for all computations
+   LOGICAL     ::   ln_hpg_ref_str   ! T => reference profile calculated taking into
+                                     !      account vertical variation in grid spacing
+   LOGICAL     ::   ln_hpg_ref_ccs   ! T => constrained cubic, 
+                                     ! F => simple cubic used for interpolation of reference 
+                                     !      to target profiles   
+   LOGICAL     ::   ln_hpg_ref_off   ! only applies if ln_hpg_ref_ccs = T; 
+                                     ! T => use off-centred simple cubic at upper & lower boundaries 
+   INTEGER     ::   nn_loc_ref_tgt   ! 1 = original Mike's algorithm; 
+                                     ! 2 = alternative Diego's algorithm;
 
    LOGICAL     ::   ln_hpg_ffr_hor_ccs  ! T => use constrained cubic spline to 
                                         !      interpolate z_rhd_pmr along upper faces of cells
@@ -216,9 +222,9 @@ CONTAINS
          &                 ln_hpg_djc, ln_hpg_prj, ln_hpg_djr, ln_hpg_ffr,   &
          &                 ln_hpg_bcvN_rhd_hor,    ln_hpg_bcvN_rhd_srf,      & 
          &                 ln_hpg_bcvN_rhd_bot,    ln_hpg_bcvN_z_hor,        &                 
-         &                 ln_hpg_ref,             nn_loc_ref_tgt,           &
-         &                 ln_hpg_ref_str,         ln_hpg_ref_ccs,           & 
-         &                 ln_hpg_ref_off,                                   &
+         &                 ln_hpg_ref,             ln_hpg_ffr_ref_2,         &
+         &                 nn_loc_ref_tgt,         ln_hpg_ref_str,           &
+         &                 ln_hpg_ref_ccs,         ln_hpg_ref_off,           &
          &                 ln_hpg_ffr_hor_ccs,     ln_hpg_ffr_hor_cub,       &
          &                 ln_hpg_ffr_vrt_quad,                              &   
          &                 ln_dbg_hpg, ln_dbg_ij,  ln_dbg_ik,  ln_dbg_jk,    &
@@ -247,7 +253,6 @@ CONTAINS
          WRITE(numout,*) '      s-coord. (Density Jacobian: Cubic polynomial)      ln_hpg_djc    = ', ln_hpg_djc
          WRITE(numout,*) '      s-coord. (Pressure Jacobian: Cubic polynomial)     ln_hpg_prj    = ', ln_hpg_prj
          WRITE(numout,*) '      s-coord. (Density Jacobian: Cubic minus reference) ln_hpg_djr    = ', ln_hpg_djr
-         WRITE(numout,*) '      s-coord. (Density Jacobian: Cubic minus reference) ln_hpg_ffr    = ', ln_hpg_djr
          WRITE(numout,*) '      s-coord. (forces on faces minus local reference)   ln_hpg_ffr    = ', ln_hpg_ffr
       ENDIF
       !
@@ -345,45 +350,54 @@ CONTAINS
 
       END IF
 
-      IF ( lwp .AND. ln_hpg_ref ) THEN
+      ! Checking options for reference profile
+
+      IF ( ln_hpg_ffr .AND. ln_hpg_ref .AND. ln_hpg_ffr_ref_2 ) THEN
+         CALL ctl_stop(  'dynhpg ERROR: ln_hpg_ref and ln_hpg_ffr_ref_2 CAN NOT be both TRUE: please check!' )
+      END IF
+
+      IF ( lwp .AND. ( ln_hpg_ref .OR. ln_hpg_ffr_ref_2 ) ) THEN
          IF ( nn_loc_ref_tgt == 1) THEN
             WRITE(numout,*) '       original Mikes algorithm to identify depths for interpolation of reference profile'
          ELSE IF ( nn_loc_ref_tgt == 2) THEN
             WRITE(numout,*) '       alternative Diegos algorithm to identify depths for interpolation of reference profile' 
          ELSE
-            WRITE(numout,*) '       ERROR: the chosen algorithm to identify depths for interpolation of reference profile DOES NOT EXIST'
+            CALL ctl_stop(  'dynhpg ERROR: the chosen algorithm to identify depths for interpolation of reference profile DOES NOT EXIST' )
          END IF
          IF ( ln_hpg_ref_ccs .AND. ln_hpg_ref_off .AND. ln_hpg_ref_str ) THEN 
-	    WRITE(numout,*) '           interpolation of reference profile by constrained cubic spline with off-centring at boundaries'                  
+            WRITE(numout,*) '           interpolation of reference profile by constrained cubic spline with off-centring at boundaries'                  
          ELSE IF ( ln_hpg_ref_ccs ) THEN
-	    WRITE(numout,*) '           interpolation of reference profile by constrained cubic spline using boundary conditions'
-	 ELSE 
-	    WRITE(numout,*) '           interpolation of reference profile by simple cubic spline with off-centring at boundaries'  
+            WRITE(numout,*) '           interpolation of reference profile by constrained cubic spline using boundary conditions'
+         ELSE 
+            WRITE(numout,*) '           interpolation of reference profile by simple cubic spline with off-centring at boundaries'  
          END IF 
          IF ( ln_hpg_ref_str ) THEN 
-	    WRITE(numout,*) '           interpolation of reference profile takes account of variation in vertical grid spacing'                  
-	 ELSE 
-	    WRITE(numout,*) '           interpolation of reference profile does NOT take account of variation in vertical grid spacing' 
+            WRITE(numout,*) '           interpolation of reference profile takes account of variation in vertical grid spacing'                  
+         ELSE 
+            WRITE(numout,*) '           interpolation of reference profile does NOT take account of variation in vertical grid spacing' 
          END IF 
       END IF       
 
-      IF ( lwp .AND. ln_hpg_ffr ) THEN 
-         IF ( .NOT. ln_hpg_ref  ) THEN
-            WRITE(numout,*) '           no reference profile subtracted '                   
-         END IF       
+      IF ( lwp .AND. ln_hpg_ffr ) THEN
+         IF ( ln_hpg_ffr_ref_2  ) THEN
+            WRITE(numout,*) '           reference profile subtracted only for horizontal interpolation on upper and lower faces '
+         ELSE IF ( ln_hpg_ref  ) THEN
+            WRITE(numout,*) '           reference profile subtracted for computations on all faces (original subtraction scheme) '
+         ELSE
+            WRITE(numout,*) '           no reference profile subtracted '       
+         END IF
          IF ( ln_hpg_ffr_hor_ccs ) THEN 
-	    WRITE(numout,*) '           interpolation of z_rhd_pmr profile in horizontal by constrained cubic spline '    
-         ELSE if ( ln_hpg_ffr_hor_cub ) THEN 
-	    WRITE(numout,*) '           interpolation of z_rhd_pmr profile in horizontal by simple cubic polynomial '
-	 ELSE 
-	    WRITE(numout,*) '           simple linear interpolation in horizontal of z_rhd_pmr profile'       
+            WRITE(numout,*) '           interpolation of z_rhd_pmr profile in horizontal by constrained cubic spline '    
+         ELSE IF ( ln_hpg_ffr_hor_cub ) THEN 
+            WRITE(numout,*) '           interpolation of z_rhd_pmr profile in horizontal by simple cubic polynomial '
+         ELSE 
+            WRITE(numout,*) '           simple linear interpolation in horizontal of z_rhd_pmr profile'       
          END IF       
          IF ( ln_hpg_ffr_vrt_quad ) THEN 
-	    WRITE(numout,*) '           quadratic fit to z_rhd_pmr profile in vertical for interpolation and integration '    
+            WRITE(numout,*) '           quadratic fit to z_rhd_pmr profile in vertical for interpolation and integration '    
          ELSE 
-	    WRITE(numout,*) '           simple second order accurate vertical integration of z_rhd_pmr profile in vertical'       
+            WRITE(numout,*) '           simple second order accurate vertical integration of z_rhd_pmr profile in vertical'       
          END IF       
-
       END IF       
 
       !
@@ -1640,6 +1654,7 @@ CONTAINS
       REAL(wp) ::   cffv, cffy          !    "         "
       REAL(wp) ::   cff_31, cff_42      !    "         "
       LOGICAL  ::   ll_tmp1, ll_tmp2    ! local logical variables
+      LOGICAL  ::   ll_sub_tgt          ! T => return target minus reference on target grid
 
       REAL(wp), DIMENSION(A2D(nn_hls),jpk)   ::   ztmp, zdz_i, zdz_j, zdz_k   ! Harmonic average of primitive grid differences
       REAL(wp), DIMENSION(A2D(nn_hls),jpk)   ::   zrhd_ref                    ! Reference density 
@@ -1799,6 +1814,8 @@ CONTAINS
       !  3. interpolate reference profiles to target profiles and form difference profiles z_rhd_pmr
       !----------------------------------------------------------------------------------------
 
+         ll_sub_tgt = .TRUE.
+
          DO jr = 1, 4      
             IF ( j_uv == 1 ) THEN 
                jio = jr - 2         ! range of jio is -1 to 2 
@@ -1816,17 +1833,19 @@ CONTAINS
                   IF ( ln_hpg_ref_ccs ) THEN 
                      IF ( ln_hpg_ref_off ) THEN 
                         !CALL ref_to_tgt_ccs_str_off ( jio, jjo, gde3w, rhd, zz_ref, zrhd_ref, zdrhd_k_ref, jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
-                        CALL ref_to_tgt_ccs_str_off ( jio, jjo, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, zdrhd_k_ref, &
-                         &                            jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
+                        CALL ref_to_tgt_ccs_str_off ( ll_sub_tgt, jio, jjo, gdept(:,:,:,Kmm), rhd, &
+                         &                            zz_ref, zrhd_ref, zdrhd_k_ref, jk_bot_ref,   &
+                         &                            z_rhd_pmr(:,:,:,jr) )
                      ELSE
                         !CALL ref_to_tgt_ccs_str ( jio, jjo, gde3w, rhd, zz_ref, zrhd_ref, zdrhd_k_ref, jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
-                        CALL ref_to_tgt_ccs_str ( jio, jjo, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, zdrhd_k_ref, &
-                         &                        jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
+                        CALL ref_to_tgt_ccs_str ( ll_sub_tgt, jio, jjo, gdept(:,:,:,Kmm), rhd, &
+                                                  zz_ref, zrhd_ref, zdrhd_k_ref, jk_bot_ref,   &
+                                                  z_rhd_pmr(:,:,:,jr) )
                      END IF 
                   ELSE  
                      !CALL ref_to_tgt_cub_str ( jio, jjo, gde3w, rhd, zz_ref, zrhd_ref, jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
-                     CALL ref_to_tgt_cub_str( jio, jjo, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, &
-                      &                       jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
+                     CALL ref_to_tgt_cub_str( ll_sub_tgt, jio, jjo, gdept(:,:,:,Kmm), rhd, &
+                      &                       zz_ref, zrhd_ref, jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
                      !CALL ref_to_tgt_cub_str_dbg( ln_dbg, jio, jjo, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, &
                      ! &                           jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
                   END IF
@@ -2183,8 +2202,11 @@ CONTAINS
 
 !---------------------------------------------------------------------------------------------------------------
 
-   SUBROUTINE ref_to_tgt_cub_str ( ki_off_tgt, kj_off_tgt, p_dep_tgt, p_fld_tgt, p_z_ref, p_fld_ref, kk_bot_ref, p_fld_tgt_ref) 
+   SUBROUTINE ref_to_tgt_cub_str ( ll_sub_tgt, ki_off_tgt, kj_off_tgt, p_dep_tgt, p_fld_tgt, p_z_ref, p_fld_ref, kk_bot_ref, p_fld_tgt_ref) 
  
+      LOGICAL,                                INTENT(in)  :: ll_sub_tgt    ! True (False) => return target 
+                                                                           ! minus (plus) reference on 
+                                                                           ! target grid
       INTEGER,                                INTENT(in)  :: ki_off_tgt    ! offset of points in target array 
                                                                            ! in i-direction   
       INTEGER,                                INTENT(in)  :: kj_off_tgt    ! offset of points in target array 
@@ -2216,13 +2238,20 @@ CONTAINS
       REAL(wp) :: zs_p, zs_0, zs_m, zs_b
       REAL(wp) :: zz_p_m, zz_p_b, zz_m_b 
       REAL(wp) :: za_1, za_2, za_3   
-      
+      REAL(wp) :: z_add_sub
+
       REAL(wp) :: zz_tgt_lcl, zz_tgt_sq, zfld_ref_on_tgt 
       LOGICAL  :: ll_ccs  
 
 !-----------------------------------------------------------------------------------------------------------------
 
       ll_ccs = .FALSE.      ! set for the call to loc_ref_tgt 
+
+      IF ( ll_sub_tgt ) THEN
+         z_add_sub = -1.0         ! subtract reference profile interpolated to target grid 
+      ELSE
+         z_add_sub =  1.0         ! add      reference profile interpolated to target grid
+      END IF
 
       ! find jk_ref_for_tgt (bounding levels on reference grid for each target point
       CALL loc_ref_tgt ( ll_ccs, ki_off_tgt, kj_off_tgt, p_dep_tgt, &
@@ -2257,7 +2286,7 @@ CONTAINS
          zs_b =   zf_b / ( zz_b * zz_p_b * zz_m_b ) 
          zs_m = - zf_m / ( zz_m * zz_p_m * zz_m_b ) 
 
-         za_1 =    zz_m*zz_b *zs_p +  zz_p*zz_b *zs_m +  zz_p*zz_m *zs_b + (zz_p*zz_m+zz_m*zz_b+zz_p*zz_b)*zs_0  
+         za_1 =   zz_m*zz_b*zs_p +  zz_p*zz_b*zs_m +  zz_p*zz_m*zs_b + (zz_p*zz_m+zz_m*zz_b+zz_p*zz_b)*zs_0  
          za_2 = - (zz_m+zz_b)*zs_p - (zz_p+zz_b)*zs_m - (zz_p+zz_m)*zs_b - (zz_p+zz_m+zz_b)*zs_0 
          za_3 = zs_p + zs_m + zs_0 + zs_b
 
@@ -2268,7 +2297,7 @@ CONTAINS
     
          ! when zfld_ref_on_tgt is commented out in the next line, the results for hpg_djr 
          ! should agree with those for hpg_djc.
-         p_fld_tgt_ref(ji, jj, jk) = p_fld_tgt(ji+ki_off_tgt, jj+kj_off_tgt, jk) - zfld_ref_on_tgt
+         p_fld_tgt_ref(ji, jj, jk) = p_fld_tgt(ji+ki_off_tgt, jj+kj_off_tgt, jk) + z_add_sub * zfld_ref_on_tgt
 
       END_3D   
 
@@ -2459,17 +2488,25 @@ CONTAINS
 
 !-----------------------------------------------------------------------------------------------------------------
 
-   SUBROUTINE ref_to_tgt_ccs_str ( ki_off_tgt, kj_off_tgt, pdep_tgt, pfld_tgt, pz_ref, pfld_ref, pdfld_k_ref, kk_bot_ref, pfld_tgt_ref) 
+   SUBROUTINE ref_to_tgt_ccs_str ( ll_sub_tgt, ki_off_tgt, kj_off_tgt, pdep_tgt, pfld_tgt, pz_ref, pfld_ref, pdfld_k_ref, kk_bot_ref, pfld_tgt_ref) 
        
-      INTEGER,                      INTENT(in)  :: ki_off_tgt    ! offset of points in target array in i-direction   
-      INTEGER,                      INTENT(in)  :: kj_off_tgt    ! offset of points in target array in j-direction   
+      LOGICAL,                                INTENT(in)  :: ll_sub_tgt    ! True (False) => return target 
+                                                                           ! minus (plus) reference on 
+                                                                           ! target grid
+      INTEGER,                                INTENT(in)  :: ki_off_tgt    ! offset of points in target array 
+                                                                           ! in i-direction   
+      INTEGER,                                INTENT(in)  :: kj_off_tgt    ! offset of points in target array 
+                                                                           ! in j-direction   
       REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pdep_tgt      ! depths of target profiles       
       REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pfld_tgt      ! field values on the target grid 
       REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pz_ref        ! heights of reference  profiles       
       REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pfld_ref      ! reference field values
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pdfld_k_ref   ! harmonic averages of vertical differences of reference field
-      INTEGER,  DIMENSION(A2D(nn_hls)),       INTENT(in)  :: kk_bot_ref    ! bottom levels in the reference profile
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(OUT) :: pfld_tgt_ref  ! target minus reference on target grid         
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pdfld_k_ref   ! harmonic averages of vertical 
+                                                                           ! differences of reference field
+      INTEGER,  DIMENSION(A2D(nn_hls)),       INTENT(in)  :: kk_bot_ref    ! bottom levels in the reference 
+                                                                           ! profile
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(OUT) :: pfld_tgt_ref  ! target minus reference on target 
+                                                                           ! grid         
 
 !-----------------------------------------------------------------------------------------------------------------
       INTEGER,  DIMENSION(A2D(nn_hls),jpk) :: jk_ref_for_tgt   ! reference index for interpolation to target grid
@@ -2489,14 +2526,22 @@ CONTAINS
       REAL(wp) :: zd_dif, zd_ave, zf_dif, zf_ave
       REAL(wp) :: zcoef_0, zcoef_1, zcoef_2, zcoef_3    
       REAL(wp) :: zfld_ref_on_tgt
+      REAL(wp) :: z_add_sub
       LOGICAL  :: ll_ccs                     ! set to .FALSE. for the call to loc_ref_tgt  
 
 !-----------------------------------------------------------------------------------------------------------------
 
       ll_ccs = .TRUE.      ! set for the call to loc_ref_tgt 
 
+      IF ( ll_sub_tgt ) THEN
+         z_add_sub = -1.0         ! subtract reference profile interpolated to target grid 
+      ELSE
+         z_add_sub =  1.0         ! add      reference profile interpolated to target grid
+      END IF
+
 ! find jk_ref_for_tgt (bounding levels on reference grid for each target point
-      CALL loc_ref_tgt ( ll_ccs, ki_off_tgt, kj_off_tgt, pdep_tgt, pz_ref, kk_bot_ref, jk_ref_for_tgt, ll_tgt_off_cen )
+      CALL loc_ref_tgt ( ll_ccs, ki_off_tgt, kj_off_tgt, pdep_tgt, pz_ref, &
+       &                 kk_bot_ref, jk_ref_for_tgt, ll_tgt_off_cen )
 
       zeta_p =  1.5_wp
       zeta_0 =  0.5_wp
@@ -2532,7 +2577,7 @@ CONTAINS
          zs_m = - zeta_m / ( zz_m * zz_p_m * zz_m_b ) 
          zs_b =   zeta_b / ( zz_b * zz_p_b * zz_m_b ) 
 
-         za_1 =     zz_m*zz_b*zs_p +   zz_p*zz_b*zs_m +   zz_p*zz_m*zs_b + (zz_p*zz_m+zz_m*zz_b+zz_p*zz_b)*zs_0  
+         za_1 =   zz_m*zz_b*zs_p + zz_p*zz_b*zs_m + zz_p*zz_m*zs_b + (zz_p*zz_m+zz_m*zz_b+zz_p*zz_b)*zs_0  
          za_2 = - (zz_m+zz_b)*zs_p - (zz_p+zz_b)*zs_m - (zz_p+zz_m)*zs_b - (zz_p+zz_m+zz_b)*zs_0 
          za_3 = zs_p + zs_m + zs_0 + zs_b
 
@@ -2558,7 +2603,7 @@ CONTAINS
          ! when zfld_ref_on_tgt is commented out in the next line, the results for hpg_djr 
          ! should agree with those for hpg_djc.   
  
-         pfld_tgt_ref(ji, jj, jk) = pfld_tgt(ji+ki_off_tgt, jj+kj_off_tgt, jk) - zfld_ref_on_tgt  
+         pfld_tgt_ref(ji, jj, jk) = pfld_tgt(ji+ki_off_tgt, jj+kj_off_tgt, jk) + z_add_sub * zfld_ref_on_tgt  
 
 !         IF ( ln_dbg_hpg .AND. lwp .AND. ji == ki_dbg_cen .AND. jj == kj_dbg_cen .AND. jk == kk_dbg_cen ) THEN
 !            WRITE(numout,*) ' zeta, zd_dif, zd_ave, zf_dif, zf_ave = ', zeta, zd_dif, zd_ave, zf_dif, zf_ave
@@ -2576,22 +2621,29 @@ CONTAINS
 
 !-----------------------------------------------------------------------------------------------------------------
 
-   SUBROUTINE ref_to_tgt_ccs_str_off ( ki_off_tgt, kj_off_tgt, pdep_tgt, pfld_tgt, pz_ref, pfld_ref, pdfld_k_ref, kk_bot_ref, pfld_tgt_ref) 
+   SUBROUTINE ref_to_tgt_ccs_str_off ( ll_sub_tgt, ki_off_tgt, kj_off_tgt, pdep_tgt, pfld_tgt, pz_ref, pfld_ref, pdfld_k_ref, kk_bot_ref, pfld_tgt_ref) 
 
-! Coded for a stretched grid and to perform off-centred pure cubic interpolation at the upper and lower boundaries 
-       
-      INTEGER,                      INTENT(in)  :: ki_off_tgt    ! offset of points in target array in i-direction   
-      INTEGER,                      INTENT(in)  :: kj_off_tgt    ! offset of points in target array in j-direction   
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pdep_tgt      ! depths of target profiles       
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pfld_tgt      ! field values on the target grid 
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pz_ref        ! heights of reference  profiles       
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pfld_ref      ! reference field values
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pdfld_k_ref   ! harmonic averages of vertical differences of reference field
-      INTEGER,  DIMENSION(A2D(nn_hls)),       INTENT(in)  :: kk_bot_ref    ! bottom levels in the reference profile
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(OUT) :: pfld_tgt_ref  ! target minus reference on target grid         
+      ! Coded for a stretched grid and to perform off-centred pure cubic interpolation 
+      ! at the upper and lower boundaries 
 
-!-----------------------------------------------------------------------------------------------------------------
-      INTEGER,  DIMENSION(A2D(nn_hls),jpk) :: jk_ref_for_tgt   ! reference index for interpolation to target grid
+      LOGICAL,                      INTENT(in)  :: ll_sub_tgt    ! True (False) => return target minus (plus) 
+                                                                 !                 reference on target grid   
+      INTEGER,                      INTENT(in)  :: ki_off_tgt    ! offset of points in target array in i-dir  
+      INTEGER,                      INTENT(in)  :: kj_off_tgt    ! offset of points in target array in j-dir  
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pdep_tgt     ! depths of target profiles       
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pfld_tgt     ! field values on the target grid 
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pz_ref       ! heights of reference  profiles       
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pfld_ref     ! reference field values
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(in)  :: pdfld_k_ref  ! harmonic averages of vertical 
+                                                                          ! differences of reference field
+      INTEGER,  DIMENSION(A2D(nn_hls)),       INTENT(in)  :: kk_bot_ref   ! bottom levels in the reference 
+                                                                          ! profile
+      REAL(wp), DIMENSION(A2D(nn_hls),jpk),   INTENT(OUT) :: pfld_tgt_ref ! target minus or plus reference on 
+                                                                          ! target grid         
+
+!--------------------------------------------------------------------------------------------------------------
+      INTEGER,  DIMENSION(A2D(nn_hls),jpk) :: jk_ref_for_tgt   ! reference index for interpolation to 
+                                                               ! target grid
       LOGICAL,  DIMENSION(A2D(nn_hls),jpk) :: ll_tgt_off_cen   ! T => off-centred interpolation
 
       INTEGER  :: ji, jj, jk                 ! DO loop indices  
@@ -2609,11 +2661,17 @@ CONTAINS
       REAL(wp) :: zd_dif, zd_ave, zf_dif, zf_ave
       REAL(wp) :: zcoef_0, zcoef_1, zcoef_2, zcoef_3    
       REAL(wp) :: zfld_ref_on_tgt
+      REAL(wp) :: z_add_sub
       LOGICAL  :: ll_ccs                     ! set to .FALSE. for the call to loc_ref_tgt 
 
-!-----------------------------------------------------------------------------------------------------------------
-
+!--------------------------------------------------------------------------------------------------------------
       ll_ccs = .FALSE.      ! set for the call to loc_ref_tgt
+
+      IF ( ll_sub_tgt ) THEN
+         z_add_sub = -1.0         ! subtract reference profile interpolated to target grid 
+      ELSE
+         z_add_sub =  1.0         ! add      reference profile interpolated to target grid
+      END IF
       
       ! find jk_ref_for_tgt (bounding levels on reference grid for each target point) and ll_tgt_off_cen
       CALL loc_ref_tgt ( ll_ccs, ki_off_tgt, kj_off_tgt, pdep_tgt, pz_ref, kk_bot_ref, jk_ref_for_tgt, ll_tgt_off_cen )
@@ -2656,7 +2714,7 @@ CONTAINS
             zs_b =   zf_b / ( zz_b * zz_p_b * zz_m_b ) 
             zs_m = - zf_m / ( zz_m * zz_p_m * zz_m_b ) 
 
-            za_1 =    zz_m*zz_b *zs_p +  zz_p*zz_b *zs_m +  zz_p*zz_m *zs_b + (zz_p*zz_m+zz_m*zz_b+zz_p*zz_b)*zs_0  
+            za_1 =   zz_m*zz_b*zs_p +  zz_p*zz_b*zs_m +  zz_p*zz_m*zs_b + (zz_p*zz_m+zz_m*zz_b+zz_p*zz_b)*zs_0 
             za_2 = - (zz_m+zz_b)*zs_p - (zz_p+zz_b)*zs_m - (zz_p+zz_m)*zs_b - (zz_p+zz_m+zz_b)*zs_0 
             za_3 = zs_p + zs_m + zs_0 + zs_b
 
@@ -2696,9 +2754,10 @@ CONTAINS
 
          END IF 
 
-         ! when zfld_ref_on_tgt is commented out in the next line, the results for hpg_djr should agree with those for hpg_djc.   
+         ! when zfld_ref_on_tgt is commented out in the next line, the results for hpg_djr 
+         ! should agree with those for hpg_djc.   
  
-         pfld_tgt_ref(ji, jj, jk) = pfld_tgt(ji+ki_off_tgt, jj+kj_off_tgt, jk) - zfld_ref_on_tgt  
+         pfld_tgt_ref(ji, jj, jk) = pfld_tgt(ji+ki_off_tgt, jj+kj_off_tgt, jk) + z_add_sub * zfld_ref_on_tgt  
     
 !         IF ( ln_dbg_hpg .AND. lwp .AND. ji == ki_dbg_cen .AND. jj == kj_dbg_cen .AND. jk == kk_dbg_cen ) THEN
 !            WRITE(numout,*) ' zeta, zd_dif, zd_ave, zf_dif, zf_ave = ', zeta, zd_dif, zd_ave, zf_dif, zf_ave
@@ -3038,6 +3097,8 @@ CONTAINS
       REAL(wp) ::   zr_a, zr_b, zr_c            ! rhd evaluated at i, i+1/2 and i+1  
       REAL(wp) ::   za_0, za_1, za_2            ! polynomial coefficients
       LOGICAL  ::   ln_dbg                      ! DB for debugging
+      LOGICAL  ::   ll_sub_tgt                  ! T => return target minus reference on target grid; 
+                                                ! F => return target plus reference on target grid
       !!----------------------------------------------------------------------
 
       IF( kt == nit000 ) THEN
@@ -3079,7 +3140,7 @@ CONTAINS
          !-------------------------------------------------------------------
          ! 1. Calculate the reference profile from all points in the stencil
 
-         IF ( ln_hpg_ref ) THEN 
+         IF ( ln_hpg_ref .OR. ln_hpg_ffr_ref_2 ) THEN 
             CALL calc_rhd_ref(j_uv, jn_hor_pts, gdept(:,:,:,Kmm), zrhd_ref, zz_ref, jk_bot_ref)    
             IF ( ln_hpg_ref_ccs ) CALL calc_drhd_k(zrhd_ref, jk_bot_ref, zdrhd_k_ref) 
          END IF 
@@ -3092,6 +3153,8 @@ CONTAINS
          !-------------------------------------------------------------------
          ! 2. Interpolate reference profile to all points in the stencil and 
          !    calculate z_rhd_pmr (profile minus reference)
+
+         ll_sub_tgt = .TRUE.   ! T => return target minus reference on target grid
 
          DO jr = 1, jn_hor_pts       
 
@@ -3107,26 +3170,28 @@ CONTAINS
            END IF 
 
            ! Subtraction of reference profile if requested
-           IF ( ln_hpg_ref ) THEN
+           IF ( ln_hpg_ref .OR. ln_hpg_ffr_ref_2 ) THEN
 
               IF ( ln_hpg_ref_str ) THEN 
                  IF ( ln_hpg_ref_ccs ) THEN 
                     IF ( ln_hpg_ref_off ) THEN 
                        !CALL ref_to_tgt_ccs_str_off( ji_ro, jj_ro, gdept, rhd, zz_ref, zrhd_ref, &
                        ! &                           zdrhd_k_ref, jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
-                       CALL ref_to_tgt_ccs_str_off( ji_ro, jj_ro, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, zdrhd_k_ref, &
-                        &                           jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
+                       CALL ref_to_tgt_ccs_str_off( ll_sub_tgt, ji_ro, jj_ro, gdept(:,:,:,Kmm), rhd, &
+                        &                           zz_ref, zrhd_ref, zdrhd_k_ref, jk_bot_ref,       &
+                        &                           z_rhd_pmr(:,:,:,jr) )
                     ELSE
                        !CALL ref_to_tgt_ccs_str( ji_ro, jj_ro, gdept, rhd, zz_ref, zrhd_ref, &
                        ! &                       zdrhd_k_ref, jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
-                       CALL ref_to_tgt_ccs_str( ji_ro, jj_ro, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, zdrhd_k_ref, &
-                        &                       jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
+                       CALL ref_to_tgt_ccs_str( ll_sub_tgt, ji_ro, jj_ro, gdept(:,:,:,Kmm), rhd, &
+                        &                       zz_ref, zrhd_ref, zdrhd_k_ref, jk_bot_ref,       &
+                        &                       z_rhd_pmr(:,:,:,jr) )
                     END IF 
                  ELSE  
                     !CALL ref_to_tgt_cub_str ( ji_ro, jj_ro, gdept, rhd, zz_ref, zrhd_ref,  &
                     ! &                        jk_bot_ref, z_rhd_pmr(:,:,:,jr) )  
-                    CALL ref_to_tgt_cub_str( ji_ro, jj_ro, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, &
-                     &                       jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
+                    CALL ref_to_tgt_cub_str( ll_sub_tgt, ji_ro, jj_ro, gdept(:,:,:,Kmm), rhd, &
+                     &                       zz_ref, zrhd_ref, jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
                     !CALL ref_to_tgt_cub_str_dbg( ln_dbg, ji_ro, jj_ro, gdept(:,:,:,Kmm), rhd, zz_ref, zrhd_ref, &
                     ! &                           jk_bot_ref, z_rhd_pmr(:,:,:,jr) )
                  END IF
@@ -3146,7 +3211,7 @@ CONTAINS
                z_rhd_pmr(ji,jj,jk,jr) = rhd(ji+ji_ro,jj+jj_ro,jk)
              END_3D
 
-           END IF ! ln_hpg_ref 
+           END IF ! ln_hpg_ref .OR. ln_hpg_ffr_ref_2
 
            DO_3D (0,0,0,0,1,jpk)
                z_dept_pmr(ji,jj,jk,jr) = gdept(ji+ji_ro,jj+jj_ro,jk,Kmm)
@@ -3220,6 +3285,44 @@ CONTAINS
                CALL dbg_3dr( '3. z_e3t_mid jr : ', z_e3t_mid(:,:,:) ) 
             END DO 
          END IF 
+
+         !------------------------------------------------------------------------ 
+         ! 3B. For the revised reference subtraction scheme, add reference profile 
+         !     to rhd_pmr at mid-points and overwrite rhd_pmr at side-faces with 
+         !     original fields  
+
+         IF ( ln_hpg_ffr_ref_2 ) THEN
+
+            ji_ro = 0   ! no offsets for this case  
+            jj_ro = 0
+
+            ll_sub_tgt = .FALSE.  ! F => return target plus reference on target grid 
+
+            IF ( ln_hpg_ref_str ) THEN
+              IF ( ln_hpg_ref_ccs ) THEN
+                 IF ( ln_hpg_ref_off ) THEN
+                    CALL ref_to_tgt_ccs_str_off ( ll_sub_tgt, ji_ro, jj_ro, z_dept_pmr(:,:,:,2),     &
+                     &                            z_rhd_pmr(:,:,:,2), zz_ref, zrhd_ref, zdrhd_k_ref, &
+                     &                            jk_bot_ref, z_rhd_pmr(:,:,:,2) )
+                 ELSE
+                    CALL ref_to_tgt_ccs_str ( ll_sub_tgt, ji_ro, jj_ro, z_dept_pmr(:,:,:,2),     &
+                     &                        z_rhd_pmr(:,:,:,2), zz_ref, zrhd_ref, zdrhd_k_ref, &
+                     &                        jk_bot_ref, z_rhd_pmr(:,:,:,2) )
+                 END IF
+              ELSE
+                 CALL ref_to_tgt_cub_str ( ll_sub_tgt, ji_ro, jj_ro, z_dept_pmr(:,:,:,2),    &
+                  &                        z_rhd_pmr(:,:,:,2), zz_ref, zrhd_ref, jk_bot_ref, &
+                  &                        z_rhd_pmr(:,:,:,2) )
+              END IF
+            END IF
+
+            DO_3D (0,0,0,0,1,jpk)
+               z_rhd_pmr(ji,jj,jk,1) = rhd(ji,    jj,    jk)
+               z_rhd_pmr(ji,jj,jk,3) = rhd(ji+jio,jj+jjo,jk)
+            END_3D
+
+         END IF ! ln_hpg_ffr_ref_2
+
 
          !-------------------------------------------------------------------
          ! 4. Vertical interpolation of densities, calculating pressures and 
