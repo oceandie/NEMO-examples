@@ -2,7 +2,7 @@
 
 #-------------------------------------------------------------------------------------
 # INPUT section 
-exp_cfg="4"  # 0: Shchepetkin and McWilliams (2002)
+exp_cfg="1"  # 0: Shchepetkin and McWilliams (2002)
              # 1: Ezer, Arango and Shchepetkin (2002)
              # 2: Amy Young
              # 3: Domain: Ezer et al 2002 
@@ -145,9 +145,12 @@ nam_tmp="${basedir}/namcfg.cfg"
 #for vco in sig s94 vqs zco; do
 vco=sig
 
-    for hpg in sco prj djc djcr ffl ffq_cub ffq_ccs fflr ffq_cubr ffq_ccsr; do
+    #for hpg in sco prj djc djcr ffl ffq_cub ffq_ccs fflr ffq_cubr ffq_ccsr; do
+    #for hpg in sco djc ffl fflr fflr2 ffq_cubr ffq_cubr2 ffq_ccsr ffq_ccsr2; do
+    for hpg in ffq_cubr2 ffq_ccsr2; do
 
-        for ini in pnt ave; do
+        #for ini in pnt ave; do
+        ini=pnt
 
             #for cor in fp4 fp5; do
             cor=fp4
@@ -257,12 +260,28 @@ vco=sig
                               -v ln_hpg_ref_str=.true. \
                               -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
                        ;;
+                     fflr2)
+                       f90nml -g namdyn_hpg \
+                              -v ln_hpg_ffr=.true. \
+                              -v ln_hpg_ffr_ref_2=.true. \
+                              -v ln_hpg_ref_str=.true. \
+                              -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
+                       ;;
                      ffq_cubr)
                        f90nml -g namdyn_hpg \
                               -v ln_hpg_ffr=.true. \
                               -v ln_hpg_ffr_vrt_quad=.true. \
                               -v ln_hpg_ffr_hor_cub=.true. \
                               -v ln_hpg_ref=.true. \
+                              -v ln_hpg_ref_str=.true. \
+                              -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
+                       ;;
+                     ffq_cubr2)
+                       f90nml -g namdyn_hpg \
+                              -v ln_hpg_ffr=.true. \
+                              -v ln_hpg_ffr_vrt_quad=.true. \
+                              -v ln_hpg_ffr_hor_cub=.true. \
+                              -v ln_hpg_ffr_ref_2=.true. \
                               -v ln_hpg_ref_str=.true. \
                               -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
                        ;;
@@ -274,7 +293,18 @@ vco=sig
                               -v ln_hpg_ref=.true. \
                               -v ln_hpg_ref_str=.true. \
                               -v ln_hpg_ref_ccs=.true. \
-                              -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3" 
+                              -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
+                       ;;
+                     ffq_ccsr2)
+                       f90nml -g namdyn_hpg \
+                              -v ln_hpg_ffr=.true. \
+                              -v ln_hpg_ffr_vrt_quad=.true. \
+                              -v ln_hpg_ffr_hor_ccs=.true. \
+                              -v ln_hpg_ffr_ref_2=.true. \
+                              -v ln_hpg_ref_str=.true. \
+                              -v ln_hpg_ref_ccs=.true. \
+                              -p ${nam_cfg}".tmp2" ${nam_cfg}".tmp3"
+                       ;; 
                    esac
  
                    # Computational halo
@@ -350,7 +380,7 @@ vco=sig
                    echo "   ... experiment already exists"
                 fi
             #done
-        done
+        #done
     done
 #done
 

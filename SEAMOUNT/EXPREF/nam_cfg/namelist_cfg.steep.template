@@ -321,6 +321,7 @@
    !--------------------------------
    ! For ffr scheme only
    !
+   ln_hpg_ffr_ref_2    = .false.
    ln_hpg_ffr_vrt_quad = .false.    ! quadratic rho profile in vertical (T) or
                                     ! classic 2nd order formula (F)
    ln_hpg_ffr_hor_ccs  = .false.    ! use ccs (T) or simple average (F) for upper face
