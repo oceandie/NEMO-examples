@@ -22,8 +22,14 @@ In your local linux VDI:
 
 The code for the NEMO HPG schemes to test and the setup of the SEAMOUNT test case can be found at:
 
-`/YOUR/PATH/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/MY_SRC`
+`cd /YOUR/PATH/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/MY_SRC`
 
+By default, when cloning (aka checking-out) a repository, we clone the entire git repository, including all the branches.
+Also, once cloned a repository, by default we are in the `master` (or `main`, depending on the version of git) branch, meaning that we "can" see the code of the `master` (`main`) branch. If you want to see/work on the `dev_seamount` development branch, you need to:
+
+`git checkout dev_seamount`
+
+After this, the code of the `dev_seamount` branch will be visible. 
 
 ## COMPILING THE SEAMOUNT TESTCASE ON THE HPC (XCE/XCF)
 
@@ -48,4 +54,17 @@ The code for the NEMO HPG schemes to test and the setup of the SEAMOUNT test cas
 3. Open run_job.sh and adapt the number of cores you want to use 
 
 4. `./run_exp_seamount.sh`
+
+
+## COMMITTING THE MODIFICATIONS TO GIT
+
+1) Since XCE/XCF are not connected with the web, we need to copy the modified files in the copy of the repository checked out in the VDI. On your local linux machine, run:
+
+`scp  <username>@<HPC-platform>:/YOUR/PATH/HPG/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/your_files /YOUR/PATH/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/`
+
+2) Once you copied the files you want to commit to your VDI:
+   '''
+   cd /YOUR/PATH/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/
+   git checkout dev_seamount
+   ''' 
 
