@@ -59,12 +59,13 @@ After this, the code of the `dev_seamount` branch will be visible.
 ## COMMITTING THE MODIFICATIONS TO GIT
 
 1) Since XCE/XCF are not connected with the web, we need to copy the modified files in the copy of the repository checked out in the VDI. On your local linux machine, run:
-
-`scp  <username>@<HPC-platform>:/YOUR/PATH/HPG/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/your_files /YOUR/PATH/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/`
+```
+scp  <username>@<HPC-platform>:/YOUR/PATH/HPG/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/your_files /YOUR/PATH/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/
+```
 
 2) Once you copied the files you want to commit to your VDI:
-   '''
+   ```
    cd /YOUR/PATH/NEMO_4.0-TRUNK_r14960_HPG/tests/SEAMOUNT/
    git checkout dev_seamount
-   ''' 
+   ``` 
 
