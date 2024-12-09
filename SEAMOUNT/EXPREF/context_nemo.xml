@@ -21,6 +21,40 @@
 <!-- Fields definition -->
     <field_definition src="./field_def_nemo-oce.xml"/>   <!--  NEMO ocean dynamics                     -->
 
+      <field_definition>
+        <field_group id="HPG_FFR_T" grid_ref="grid_T_3D" >
+          <field id="rhd_hpg"         long_name="in situ density anomaly" unit="non-dimensional" />
+          <field id="rhd_ref"         long_name="in situ local reference density" unit="non-dimensional" />
+          <field id="jk_bot_ref"      long_name="for debugging" unit="non-dimensional" grid_ref="grid_T_2D" />
+          <field id="jk_ref_for_tgt"  long_name="for debugging" unit="non-dimensional" />
+          <field id="zfld_ref_on_tgt" long_name="for debugging" unit="non-dimensional" />
+          <field id="p_fld_tgt"       long_name="for debugging" unit="non-dimensional" />
+        </field_group>
+      
+        <field_group id="HPG_FFR_U" grid_ref="grid_U_3D" >
+          <field id="u_force_west"  long_name="u-direction force on west face "  unit="m^3/s^2" />
+          <field id="u_force_upper" long_name="u-direction force on upper face " unit="m^3/s^2" />
+          <field id="mid_x_press"   long_name="u-direction pressure mid-slope"   unit="m^2/s^2" />
+          <field id="x_mid_slope"   long_name="x-direction slope mid-cell"       unit="m"       />
+          <field id="lhs_x_press"   long_name="u-direction pressure lhs-slope"   unit="m^2/s^2" />
+          <field id="x_lhs_slope"   long_name="x-direction slope lhs-cell"       unit="m"       />
+          <field id="rhs_x_press"   long_name="u-direction pressure rhs-slope"   unit="m^2/s^2" />
+          <field id="x_rhs_slope"   long_name="x-direction slope rhs-cell"       unit="m"       />
+        </field_group>
+
+        <field_group id="HPG_FFR_V" grid_ref="grid_V_3D" >
+          <field id="v_force_south" long_name="v-direction force on south face " unit="m^3/s^2" />
+          <field id="v_force_upper" long_name="v-direction force on upper face " unit="m^3/s^2" />
+          <field id="mid_y_press"   long_name="v-direction pressure mid-slope"   unit="m^2/s^2" />
+          <field id="y_mid_slope"   long_name="y-direction slope mid-cell"       unit="m"       />
+        </field_group>
+
+        <field_group id="HPG_FFR_W" grid_ref="grid_W_3D" >
+          <field id="gdepw_hpg"     long_name="depth of w levels (relative to surface)" unit="m"       />
+          <field id="pressure"      long_name="pressure (relative to surface)"          unit="m^2/s^2" />
+        </field_group>
+    </field_definition>
+
 <!-- Files definition -->
     <file_definition src="./file_def_nemo-oce.xml"/>     <!--  NEMO ocean dynamics                     -->
 

@@ -90,7 +90,7 @@ MODULE dynhpg
    INTEGER, PUBLIC  ::   nhpg         !: type of pressure gradient scheme used 
                                       !: (deduced from ln_hpg_... flags) (PUBLIC for TAM)
    !
-
+   LOGICAL     ::   ln_hpg_djc_vnh, ln_hpg_djc_vnv             !: flags to specify hpg_djc boundary condition type (from v4.2.2 release)
    LOGICAL     ::   ln_hpg_bcvN_rhd_hor, ln_hpg_bcvN_rhd_srf   !: flags to specify constrained cubic 
                                                                !: spline (ccs) bdy conditions for rhd & z
    LOGICAL     ::   ln_hpg_bcvN_rhd_bot, ln_hpg_bcvN_z_hor     !: True implies von Neumann bcs; 
@@ -156,9 +156,9 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !
-      REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::   ztrdu, ztrdv
+      REAL(dp), ALLOCATABLE, DIMENSION(:,:,:) ::   ztrdu, ztrdv
       !!----------------------------------------------------------------------
       !
       IF( ln_timing )   CALL timing_start('dyn_hpg')
@@ -220,6 +220,7 @@ CONTAINS
 
       NAMELIST/namdyn_hpg/ ln_hpg_zco, ln_hpg_zps, ln_hpg_sco, ln_hpg_isf,   &
          &                 ln_hpg_djc, ln_hpg_prj, ln_hpg_djr, ln_hpg_ffr,   &
+         &                 ln_hpg_djc_vnh     ,    ln_hpg_djc_vnv,           &
          &                 ln_hpg_bcvN_rhd_hor,    ln_hpg_bcvN_rhd_srf,      & 
          &                 ln_hpg_bcvN_rhd_bot,    ln_hpg_bcvN_z_hor,        &                 
          &                 ln_hpg_ref,             ln_hpg_ffr_ref_2,         &
@@ -263,11 +264,6 @@ CONTAINS
          &   CALL ctl_stop( 'dyn_hpg_init : ln_hpg_isf=T requires ln_isfcav=T and vice versa' )  
 
       !
-#if defined key_qco
-      IF( ln_hpg_isf ) THEN
-         CALL ctl_stop( 'dyn_hpg_init : key_qco and ln_hpg_isf not yet compatible' )
-      ENDIF
-#endif
 
       IF( ln_hpg_djr .AND. nn_hls < 2) THEN
          CALL ctl_stop( 'dyn_hpg_init : nn_hls < 2 and ln_hpg_djr not yet compatible' )
@@ -431,7 +427,7 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !
       INTEGER  ::   ji, jj, jk       ! dummy loop indices
       REAL(wp) ::   zcoef0, zcoef1   ! temporary scalars
@@ -484,7 +480,7 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !!
       INTEGER  ::   ji, jj, jk                       ! dummy loop indices
       INTEGER  ::   iku, ikv                         ! temporary integers
@@ -503,7 +499,7 @@ CONTAINS
       ENDIF
 
       ! Partial steps: Compute NOW horizontal gradient of t, s, rd at the last ocean level
-      CALL zps_hde( kt, Kmm, jpts, ts(:,:,:,:,Kmm), zgtsu, zgtsv, rhd, zgru , zgrv )
+      CALL zps_hde( kt, jpts, ts(:,:,:,:,Kmm), zgtsu, zgtsv, rhd, zgru , zgrv )
 
       ! Local constant initialization
       zcoef0 = - grav * 0.5_wp
@@ -578,16 +574,13 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !!
       INTEGER  ::   ji, jj, jk, jii, jjj           ! dummy loop indices
       REAL(wp) ::   zcoef0, zuap, zvap, ztmp       ! local scalars
-      LOGICAL  ::   ll_tmp1, ll_tmp2               ! local logical variables
       REAL(wp), DIMENSION(A2D(nn_hls),jpk)  ::   zhpi, zhpj
-      REAL(wp), DIMENSION(:,:), ALLOCATABLE ::   zcpx, zcpy   !W/D pressure filter
       !!----------------------------------------------------------------------
       !
-      IF( ln_wd_il ) ALLOCATE(zcpx(A2D(nn_hls)), zcpy(A2D(nn_hls)))
       !
       IF( .NOT. l_istiled .OR. ntile == 1 )  THEN                       ! Do only on the first tile
          IF( kt == nit000 ) THEN
@@ -599,45 +592,6 @@ CONTAINS
       !
       zcoef0 = - grav * 0.5_wp
       !
-      IF( ln_wd_il ) THEN
-        DO_2D( 0, 0, 0, 0 )
-          ll_tmp1 = MIN(  ssh(ji,jj,Kmm)               ,  ssh(ji+1,jj,Kmm) ) >                &
-               &    MAX( -ht_0(ji,jj)               , -ht_0(ji+1,jj) ) .AND.            &
-               &    MAX(  ssh(ji,jj,Kmm) +  ht_0(ji,jj),  ssh(ji+1,jj,Kmm) + ht_0(ji+1,jj) )  &
-               &                                                       > rn_wdmin1 + rn_wdmin2
-          ll_tmp2 = ( ABS( ssh(ji,jj,Kmm)              -  ssh(ji+1,jj,Kmm) ) > 1.E-12 ) .AND. (       &
-               &    MAX(   ssh(ji,jj,Kmm)              ,  ssh(ji+1,jj,Kmm) ) >                &
-               &    MAX(  -ht_0(ji,jj)              , -ht_0(ji+1,jj) ) + rn_wdmin1 + rn_wdmin2 )
-
-          IF(ll_tmp1) THEN
-            zcpx(ji,jj) = 1.0_wp
-          ELSE IF(ll_tmp2) THEN
-            ! no worries about  ssh(ji+1,jj,Kmm) -  ssh(ji  ,jj,Kmm) = 0, it won't happen ! here
-            zcpx(ji,jj) = ABS( (ssh(ji+1,jj,Kmm) + ht_0(ji+1,jj) - ssh(ji,jj,Kmm) - ht_0(ji,jj)) &
-                        &    / (ssh(ji+1,jj,Kmm) - ssh(ji  ,jj,Kmm)) )
-          ELSE
-            zcpx(ji,jj) = 0._wp
-          END IF
-   
-          ll_tmp1 = MIN(  ssh(ji,jj,Kmm)              ,  ssh(ji,jj+1,Kmm) ) >                &
-               &    MAX( -ht_0(ji,jj)              , -ht_0(ji,jj+1) ) .AND.            &
-               &    MAX(  ssh(ji,jj,Kmm) + ht_0(ji,jj),  ssh(ji,jj+1,Kmm) + ht_0(ji,jj+1) )  &
-               &                                                      > rn_wdmin1 + rn_wdmin2
-          ll_tmp2 = ( ABS( ssh(ji,jj,Kmm)             -  ssh(ji,jj+1,Kmm) ) > 1.E-12 ) .AND. (        &
-               &    MAX(   ssh(ji,jj,Kmm)             ,  ssh(ji,jj+1,Kmm) ) >                &
-               &    MAX(  -ht_0(ji,jj)             , -ht_0(ji,jj+1) ) + rn_wdmin1 + rn_wdmin2 )
-
-          IF(ll_tmp1) THEN
-            zcpy(ji,jj) = 1.0_wp
-          ELSE IF(ll_tmp2) THEN
-            ! no worries about  ssh(ji,jj+1,Kmm) -  ssh(ji,jj  ,Kmm) = 0, it won't happen ! here
-            zcpy(ji,jj) = ABS( (ssh(ji,jj+1,Kmm) + ht_0(ji,jj+1) - ssh(ji,jj,Kmm) - ht_0(ji,jj)) &
-                        &    / (ssh(ji,jj+1,Kmm) - ssh(ji,jj  ,Kmm)) )
-          ELSE
-            zcpy(ji,jj) = 0._wp
-          END IF
-        END_2D
-      END IF
       !
       DO_2D( 0, 0, 0, 0 )              ! Surface value
          !                                   ! hydrostatic pressure gradient along s-surfaces
@@ -653,12 +607,6 @@ CONTAINS
          zvap = -zcoef0 * ( rhd    (ji,jj+1,1) + rhd    (ji,jj,1) )   &
             &           * ( gde3w(ji,jj+1,1) - gde3w(ji,jj,1) ) * r1_e2v(ji,jj)
          !
-         IF( ln_wd_il ) THEN
-            zhpi(ji,jj,1) = zhpi(ji,jj,1) * zcpx(ji,jj)
-            zhpj(ji,jj,1) = zhpj(ji,jj,1) * zcpy(ji,jj) 
-            zuap = zuap * zcpx(ji,jj)
-            zvap = zvap * zcpy(ji,jj)
-         ENDIF
          !                                   ! add to the general momentum trend
          puu(ji,jj,1,Krhs) = puu(ji,jj,1,Krhs) + zhpi(ji,jj,1) + zuap
          pvv(ji,jj,1,Krhs) = pvv(ji,jj,1,Krhs) + zhpj(ji,jj,1) + zvap
@@ -678,19 +626,12 @@ CONTAINS
          zvap = -zcoef0 * ( rhd  (ji  ,jj+1,jk) + rhd  (ji,jj,jk) ) &
             &           * ( gde3w(ji  ,jj+1,jk) - gde3w(ji,jj,jk) ) * r1_e2v(ji,jj)
          !
-         IF( ln_wd_il ) THEN
-            zhpi(ji,jj,jk) = zhpi(ji,jj,jk) * zcpx(ji,jj)
-            zhpj(ji,jj,jk) = zhpj(ji,jj,jk) * zcpy(ji,jj) 
-            zuap = zuap * zcpx(ji,jj)
-            zvap = zvap * zcpy(ji,jj)
-         ENDIF
          !
          ! add to the general momentum trend
          puu(ji,jj,jk,Krhs) = puu(ji,jj,jk,Krhs) + zhpi(ji,jj,jk) + zuap
          pvv(ji,jj,jk,Krhs) = pvv(ji,jj,jk,Krhs) + zhpj(ji,jj,jk) + zvap
       END_3D
       !
-      IF( ln_wd_il )  DEALLOCATE( zcpx , zcpy )
       !
    END SUBROUTINE hpg_sco
 
@@ -716,7 +657,7 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !!
       INTEGER  ::   ji, jj, jk             ! dummy loop indices
       INTEGER  ::   ikt ,  ikti1,  iktj1   ! local integer
@@ -724,7 +665,7 @@ CONTAINS
       REAL(wp) ::   zcoef0, zuap, zvap     !   -      -
       REAL(wp), DIMENSION(A2D(nn_hls),jpk ) ::  zhpi, zhpj
       REAL(wp), DIMENSION(A2D(nn_hls),jpts) ::  zts_top
-      REAL(wp), DIMENSION(A2D(nn_hls))      ::  zrhdtop_oce
+      REAL(wp), DIMENSION(A2D(nn_hls))      ::  zrhd_top, zdep_top
       !!----------------------------------------------------------------------
       !
       zcoef0 = - grav * 0.5_wp   ! Local constant initialization
@@ -738,8 +679,9 @@ CONTAINS
          ikt = mikt(ji,jj)
          zts_top(ji,jj,1) = ts(ji,jj,ikt,1,Kmm)
          zts_top(ji,jj,2) = ts(ji,jj,ikt,2,Kmm)
+         zdep_top(ji,jj)  = MAX( risfdep(ji,jj) , gdept(ji,jj,1,Kmm) )
       END_2D
-      CALL eos( zts_top, risfdep, zrhdtop_oce )
+      CALL eos( zts_top, zdep_top, zrhd_top )
 
       !                     !===========================!
       !                     !=====  surface value  =====!
@@ -751,11 +693,11 @@ CONTAINS
          !                          ! hydrostatic pressure gradient along s-surfaces and ice shelf pressure
          !                          ! we assume ISF is in isostatic equilibrium
          zhpi(ji,jj,1) = zcoef0 * r1_e1u(ji,jj) * (   risfload(ji+1,jj) - risfload(ji,jj)  &
-            &                                       + 0.5_wp * ( ze3wi1 * ( rhd(ji+1,jj,ikti1) + zrhdtop_oce(ji+1,jj) )     &
-            &                                                  - ze3w   * ( rhd(ji  ,jj,ikt  ) + zrhdtop_oce(ji  ,jj) ) )   )
+            &                                       + 0.5_wp * ( ze3wi1 * ( rhd(ji+1,jj,ikti1) + zrhd_top(ji+1,jj) )     &
+            &                                                  - ze3w   * ( rhd(ji  ,jj,ikt  ) + zrhd_top(ji  ,jj) ) )   )
          zhpj(ji,jj,1) = zcoef0 * r1_e2v(ji,jj) * (   risfload(ji,jj+1) - risfload(ji,jj)  &
-            &                                       + 0.5_wp * ( ze3wj1 * ( rhd(ji,jj+1,iktj1) + zrhdtop_oce(ji,jj+1) )      &
-            &                                                  - ze3w   * ( rhd(ji,jj  ,ikt  ) + zrhdtop_oce(ji,jj  ) ) )   ) 
+            &                                       + 0.5_wp * ( ze3wj1 * ( rhd(ji,jj+1,iktj1) + zrhd_top(ji,jj+1) )      &
+            &                                                  - ze3w   * ( rhd(ji,jj  ,ikt  ) + zrhd_top(ji,jj  ) ) )   )
          !                          ! s-coordinate pressure gradient correction (=0 if z coordinate)
          zuap = -zcoef0 * ( rhd    (ji+1,jj,1) + rhd    (ji,jj,1) )   &
             &           * ( gde3w(ji+1,jj,1) - gde3w(ji,jj,1) ) * r1_e1u(ji,jj)
@@ -803,7 +745,7 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !!
       INTEGER  ::   ji, jj, jk          ! dummy loop indices
       INTEGER  ::   iktb, iktt          ! jk indices at tracer points for top and bottom points 
@@ -811,7 +753,6 @@ CONTAINS
       REAL(wp) ::   z_grav_10, z1_12, z1_cff
       REAL(wp) ::   cffu, cffx          !    "         "
       REAL(wp) ::   cffv, cffy          !    "         "
-      LOGICAL  ::   ll_tmp1, ll_tmp2    ! local logical variables
       REAL(wp), DIMENSION(A2D(nn_hls),jpk) ::   zhpi, zhpj
 
       REAL(wp), DIMENSION(A2D(nn_hls),jpk) ::   zdzx, zdzy, zdzz                          ! Primitive grid differences ('delta_xyz')
@@ -820,48 +761,8 @@ CONTAINS
       REAL(wp), DIMENSION(A2D(nn_hls),jpk) ::   zdrho_i, zdrho_j, zdrho_k                 ! Harmonic average of primitive rho differences ('d_rho')
       REAL(wp), DIMENSION(A2D(nn_hls),jpk) ::   z_rho_i, z_rho_j, z_rho_k                 ! Face intergrals
       REAL(wp), DIMENSION(A2D(nn_hls))     ::   zz_dz_i, zz_dz_j, zz_drho_i, zz_drho_j    ! temporary arrays
-      REAL(wp), DIMENSION(:,:), ALLOCATABLE ::   zcpx, zcpy   !W/D pressure filter
       !!----------------------------------------------------------------------
       !
-      IF( ln_wd_il ) THEN
-         ALLOCATE( zcpx(A2D(nn_hls)) , zcpy(A2D(nn_hls)) )
-        DO_2D( 0, 0, 0, 0 )
-          ll_tmp1 = MIN(  ssh(ji,jj,Kmm)              ,  ssh(ji+1,jj,Kmm) ) >                &
-               &    MAX( -ht_0(ji,jj)              , -ht_0(ji+1,jj) ) .AND.            &
-               &    MAX(  ssh(ji,jj,Kmm) + ht_0(ji,jj),  ssh(ji+1,jj,Kmm) + ht_0(ji+1,jj) )  &
-               &                                                      > rn_wdmin1 + rn_wdmin2
-          ll_tmp2 = ( ABS( ssh(ji,jj,Kmm)             -  ssh(ji+1,jj,Kmm) ) > 1.E-12 ) .AND. (        &
-               &    MAX(   ssh(ji,jj,Kmm)             ,  ssh(ji+1,jj,Kmm) ) >                &
-               &    MAX(  -ht_0(ji,jj)             , -ht_0(ji+1,jj) ) + rn_wdmin1 + rn_wdmin2 )
-          IF(ll_tmp1) THEN
-            zcpx(ji,jj) = 1.0_wp
-          ELSE IF(ll_tmp2) THEN
-            ! no worries about  ssh(ji+1,jj,Kmm) -  ssh(ji  ,jj,Kmm) = 0, it won't happen ! here
-            zcpx(ji,jj) = ABS( (ssh(ji+1,jj,Kmm) + ht_0(ji+1,jj) - ssh(ji,jj,Kmm) - ht_0(ji,jj)) &
-                        &    / (ssh(ji+1,jj,Kmm) - ssh(ji  ,jj,Kmm)) )
-          ELSE
-            zcpx(ji,jj) = 0._wp
-          END IF
-   
-          ll_tmp1 = MIN(  ssh(ji,jj,Kmm)              ,  ssh(ji,jj+1,Kmm) ) >                &
-               &    MAX( -ht_0(ji,jj)              , -ht_0(ji,jj+1) ) .AND.            &
-               &    MAX(  ssh(ji,jj,Kmm) + ht_0(ji,jj),  ssh(ji,jj+1,Kmm) + ht_0(ji,jj+1) )  &
-               &                                                      > rn_wdmin1 + rn_wdmin2
-          ll_tmp2 = ( ABS( ssh(ji,jj,Kmm)             -  ssh(ji,jj+1,Kmm) ) > 1.E-12 ) .AND. (        &
-               &    MAX(   ssh(ji,jj,Kmm)             ,  ssh(ji,jj+1,Kmm) ) >                &
-               &    MAX(  -ht_0(ji,jj)             , -ht_0(ji,jj+1) ) + rn_wdmin1 + rn_wdmin2 )
-
-          IF(ll_tmp1) THEN
-            zcpy(ji,jj) = 1.0_wp
-          ELSE IF(ll_tmp2) THEN
-            ! no worries about  ssh(ji,jj+1,Kmm) -  ssh(ji,jj  ,Kmm) = 0, it won't happen ! here
-            zcpy(ji,jj) = ABS( (ssh(ji,jj+1,Kmm) + ht_0(ji,jj+1) - ssh(ji,jj,Kmm) - ht_0(ji,jj)) &
-                        &    / (ssh(ji,jj+1,Kmm) - ssh(ji,jj  ,Kmm)) )
-          ELSE
-            zcpy(ji,jj) = 0._wp
-          END IF
-        END_2D
-      END IF
 
       IF( .NOT. l_istiled .OR. ntile == 1 )  THEN                       ! Do only on the first tile
          IF( kt == nit000 ) THEN
@@ -1094,10 +995,6 @@ CONTAINS
       DO_2D( 0, 0, 0, 0 )
          zhpi(ji,jj,1) = ( z_rho_k(ji,jj,1) - z_rho_k(ji+1,jj  ,1) - z_rho_i(ji,jj,1) ) * r1_e1u(ji,jj)
          zhpj(ji,jj,1) = ( z_rho_k(ji,jj,1) - z_rho_k(ji  ,jj+1,1) - z_rho_j(ji,jj,1) ) * r1_e2v(ji,jj)
-         IF( ln_wd_il ) THEN
-           zhpi(ji,jj,1) = zhpi(ji,jj,1) * zcpx(ji,jj)
-           zhpj(ji,jj,1) = zhpj(ji,jj,1) * zcpy(ji,jj) 
-         ENDIF
          ! add to the general momentum trend
          puu(ji,jj,1,Krhs) = puu(ji,jj,1,Krhs) + zhpi(ji,jj,1)
          pvv(ji,jj,1,Krhs) = pvv(ji,jj,1,Krhs) + zhpj(ji,jj,1)
@@ -1114,10 +1011,6 @@ CONTAINS
          zhpj(ji,jj,jk) = zhpj(ji,jj,jk-1)                                                     &
             &           + (  ( z_rho_k(ji,jj,jk) - z_rho_k(ji,jj+1,jk  ) )                     &
             &               -( z_rho_j(ji,jj,jk) - z_rho_j(ji,jj  ,jk-1) )  ) * r1_e2v(ji,jj)
-         IF( ln_wd_il ) THEN
-           zhpi(ji,jj,jk) = zhpi(ji,jj,jk) * zcpx(ji,jj)
-           zhpj(ji,jj,jk) = zhpj(ji,jj,jk) * zcpy(ji,jj) 
-         ENDIF
          ! add to the general momentum trend
          puu(ji,jj,jk,Krhs) = puu(ji,jj,jk,Krhs) + zhpi(ji,jj,jk)
          pvv(ji,jj,jk,Krhs) = pvv(ji,jj,jk,Krhs) + zhpj(ji,jj,jk)
@@ -1129,7 +1022,6 @@ CONTAINS
          CALL dbg_3dr( '8. zhpj', zhpj ) 
       END IF       
   
-      IF( ln_wd_il )   DEALLOCATE( zcpx, zcpy )
       !
    END SUBROUTINE hpg_djc
 
@@ -1148,14 +1040,13 @@ CONTAINS
       INTEGER, PARAMETER  :: polynomial_type = 1    ! 1: cubic spline, 2: linear
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !!
       INTEGER  ::   ji, jj, jk, jkk                 ! dummy loop indices
       REAL(wp) ::   zcoef0, znad                    ! local scalars
       !
       !! The local variables for the correction term
       INTEGER  :: jk1, jis, jid, jjs, jjd
-      LOGICAL  :: ll_tmp1, ll_tmp2                  ! local logical variables
       REAL(wp) :: zuijk, zvijk, zpwes, zpwed, zpnss, zpnsd, zdeps
       REAL(wp) :: zrhdt1
       REAL(wp) :: zdpdx1, zdpdx2, zdpdy1, zdpdy2
@@ -1163,7 +1054,6 @@ CONTAINS
       REAL(wp), DIMENSION(A2D(nn_hls))     ::   zsshu_n, zsshv_n
       REAL(wp), DIMENSION(A2D(nn_hls),jpk) ::   zdept, zrhh
       REAL(wp), DIMENSION(A2D(nn_hls),jpk) ::   zhpi, zu, zv, fsp, xsp, asp, bsp, csp, dsp
-      REAL(wp), DIMENSION(:,:), ALLOCATABLE ::   zcpx, zcpy   !W/D pressure filter
       !!----------------------------------------------------------------------
       !
       IF( .NOT. l_istiled .OR. ntile == 1 )  THEN                       ! Do only on the first tile
@@ -1187,48 +1077,6 @@ CONTAINS
          zpgv(ji,jj) = - grav * ( ssh(ji,jj+1,Kmm) - ssh(ji,jj,Kmm) ) * r1_e2v(ji,jj)
       END_2D
       !
-      IF( ln_wd_il ) THEN
-         ALLOCATE( zcpx(A2D(nn_hls)) , zcpy(A2D(nn_hls)) )
-         DO_2D( 0, 0, 0, 0 )
-            ll_tmp1 = MIN(   ssh(ji,jj,Kmm)              ,   ssh(ji+1,jj,Kmm)                 ) >       &
-               &      MAX( -ht_0(ji,jj)                  , -ht_0(ji+1,jj)                     ) .AND.   &
-               &      MAX(   ssh(ji,jj,Kmm) + ht_0(ji,jj),   ssh(ji+1,jj,Kmm) + ht_0(ji+1,jj) ) >       &
-               &      rn_wdmin1 + rn_wdmin2
-            ll_tmp2 = ( ABS(   ssh(ji,jj,Kmm) -   ssh(ji+1,jj,Kmm) ) > 1.E-12 ) .AND.                   &
-               &      ( MAX(   ssh(ji,jj,Kmm) ,   ssh(ji+1,jj,Kmm) ) >                                  &
-               &        MAX( -ht_0(ji,jj)     , -ht_0(ji+1,jj)     ) + rn_wdmin1 + rn_wdmin2 )
-
-            IF(ll_tmp1) THEN
-               zcpx(ji,jj) = 1.0_wp
-            ELSE IF(ll_tmp2) THEN
-               ! no worries about  ssh(ji+1,jj,Kmm) -  ssh(ji  ,jj,Kmm) = 0, it won't happen ! here
-               zcpx(ji,jj) = ABS( (ssh(ji+1,jj,Kmm) + ht_0(ji+1,jj) - ssh(ji,jj,Kmm) - ht_0(ji,jj)) &
-                           &    / (ssh(ji+1,jj,Kmm) -  ssh(ji  ,jj,Kmm)) )
-               zcpx(ji,jj) = MAX(MIN( zcpx(ji,jj) , 1.0_wp),0.0_wp)
-            ELSE
-               zcpx(ji,jj) = 0._wp
-            END IF
-
-            ll_tmp1 = MIN(   ssh(ji,jj,Kmm)              ,   ssh(ji,jj+1,Kmm)                 ) >       &
-               &      MAX( -ht_0(ji,jj)                  , -ht_0(ji,jj+1)                     ) .AND.   &
-               &      MAX(   ssh(ji,jj,Kmm) + ht_0(ji,jj),   ssh(ji,jj+1,Kmm) + ht_0(ji,jj+1) ) >       &
-               &      rn_wdmin1 + rn_wdmin2
-            ll_tmp2 = ( ABS(   ssh(ji,jj,Kmm) -   ssh(ji,jj+1,Kmm) ) > 1.E-12 ) .AND.                   &
-               &      ( MAX(   ssh(ji,jj,Kmm) ,   ssh(ji,jj+1,Kmm) ) >                                  &
-               &        MAX( -ht_0(ji,jj)     , -ht_0(ji,jj+1)     ) + rn_wdmin1 + rn_wdmin2 )
-
-            IF(ll_tmp1) THEN
-               zcpy(ji,jj) = 1.0_wp
-            ELSE IF(ll_tmp2) THEN
-               ! no worries about  ssh(ji,jj+1,Kmm) -  ssh(ji,jj  ,Kmm) = 0, it won't happen ! here
-               zcpy(ji,jj) = ABS( (ssh(ji,jj+1,Kmm) + ht_0(ji,jj+1) - ssh(ji,jj,Kmm) - ht_0(ji,jj)) &
-                           &    / (ssh(ji,jj+1,Kmm) -  ssh(ji,jj  ,Kmm)) )
-               zcpy(ji,jj) = MAX(MIN( zcpy(ji,jj) , 1.0_wp),0.0_wp)
-            ELSE
-               zcpy(ji,jj) = 0._wp
-            ENDIF
-         END_2D
-      ENDIF
 
       ! Clean 3-D work arrays
       zhpi(:,:,:) = 0._wp
@@ -1376,10 +1224,6 @@ CONTAINS
             ELSE
                zdpdx2 = zcoef0 * r1_e1u(ji,jj) * REAL(jis-jid, wp) * (zpwes + zpwed)
             ENDIF
-            IF( ln_wd_il ) THEN
-               zdpdx1 = zdpdx1 * zcpx(ji,jj) * wdrampu(ji,jj)
-               zdpdx2 = zdpdx2 * zcpx(ji,jj) * wdrampu(ji,jj)
-            ENDIF
             puu(ji,jj,jk,Krhs) = puu(ji,jj,jk,Krhs) + (zdpdx1 + zdpdx2 - zpgu(ji,jj)) * umask(ji,jj,jk)
          ENDIF
 
@@ -1433,17 +1277,12 @@ CONTAINS
             ELSE
                zdpdy2 = zcoef0 * r1_e2v(ji,jj) * REAL(jjs-jjd, wp) * (zpnss + zpnsd )
             ENDIF
-            IF( ln_wd_il ) THEN
-               zdpdy1 = zdpdy1 * zcpy(ji,jj) * wdrampv(ji,jj)
-               zdpdy2 = zdpdy2 * zcpy(ji,jj) * wdrampv(ji,jj)
-            ENDIF
 
             pvv(ji,jj,jk,Krhs) = pvv(ji,jj,jk,Krhs) + (zdpdy1 + zdpdy2 - zpgv(ji,jj)) * vmask(ji,jj,jk)
          ENDIF
          !
       END_3D
       !
-      IF( ln_wd_il )   DEALLOCATE( zcpx, zcpy )
       !
    END SUBROUTINE hpg_prj
 
@@ -1465,7 +1304,7 @@ CONTAINS
       INTEGER  ::   ji, jj, jk                 ! dummy loop indices
       REAL(wp) ::   zdf1, zdf2, zddf1, zddf2, ztmp1, ztmp2, zdxtmp
       REAL(wp) ::   zdxtmp1, zdxtmp2, zalpha
-      REAL(wp) ::   zdf(jpk)
+      REAL(wp), DIMENSION(jpk) ::   zdf
       !!----------------------------------------------------------------------
       !
       IF (polynomial_type == 1) THEN     ! Constrained Cubic Spline
@@ -1550,7 +1389,8 @@ CONTAINS
       !! ** Method  :   interpolation is straight forward
       !!                extrapolation is also permitted (no value limit)
       !!----------------------------------------------------------------------
-      REAL(wp), INTENT(in) ::  x, xl, xr, fl, fr
+      REAL(wp), INTENT(in) ::  fl, fr
+      REAL(dp), INTENT(in) ::  x, xl, xr
       REAL(wp)             ::  f ! result of the interpolation (extrapolation)
       REAL(wp)             ::  zdeltx
       !!----------------------------------------------------------------------
@@ -1636,7 +1476,7 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(A2D(nn_hls),jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
+      REAL(dp), DIMENSION(A2D(nn_hls),jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of momentum equation
       !!
       INTEGER  ::   ji, jj, jk, jr      ! loop indices
       INTEGER  ::   jn_hor_pts          ! number of points in the horizontal stencil
@@ -3058,7 +2898,7 @@ CONTAINS
       !!----------------------------------------------------------------------
       INTEGER                             , INTENT( in )  ::  kt          ! ocean time-step index
       INTEGER                             , INTENT( in )  ::  Kmm, Krhs   ! ocean time level indices
-      REAL(wp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of 
+      REAL(dp), DIMENSION(jpi,jpj,jpk,jpt), INTENT(inout) ::  puu, pvv    ! ocean velocities and RHS of 
                                                                           ! momentum equation
       !!
       

@@ -354,8 +354,8 @@ CONTAINS
       END DO
 
       DO jk = 1,jpk                         ! Computed as the minimum of neighbooring scale factors
-         DO jj = 1, jpjm1
-            DO ji = 1, jpim1   ! vector opt.
+         DO jj = 1, jpj - 1
+            DO ji = 1, jpi - 1   ! vector opt.
                pe3u (ji,jj,jk) = MIN( pe3t(ji,jj,jk), pe3t(ji+1,jj,jk) )
                pe3v (ji,jj,jk) = MIN( pe3t(ji,jj,jk), pe3t(ji,jj+1,jk) )
                pe3uw(ji,jj,jk) = MIN( pe3w(ji,jj,jk), pe3w(ji+1,jj,jk) )
@@ -375,8 +375,8 @@ CONTAINS
          e3f_0(:,:,jk) = e3t_1d(jk)
       END DO
       DO jk = 1, jpk                        ! Computed as the minimum of neighbooring V-scale factors
-         DO jj = 1, jpjm1
-            DO ji = 1, jpim1   ! vector opt.
+         DO jj = 1, jpj - 1
+            DO ji = 1, jpi - 1   ! vector opt.
                e3f_0(ji,jj,jk) = MIN( e3v_0(ji,jj,jk), e3v_0(ji+1,jj,jk) )
             END DO
          END DO
@@ -458,8 +458,8 @@ CONTAINS
 
       ! Compute vertical scale factors for all grids
       DO jk = 1, jpk
-         DO jj = 1, jpjm1
-            DO ji = 1, jpim1
+         DO jj = 1, jpj - 1
+            DO ji = 1, jpi - 1
                pe3u (ji,jj,jk) = 0.5_wp  * ( pe3t (ji,jj,jk)   + pe3t (ji+1,jj,  jk) )
                pe3v (ji,jj,jk) = 0.5_wp  * ( pe3t (ji,jj,jk)   + pe3t (ji,jj+1,  jk) )
                pe3uw(ji,jj,jk) = 0.5_wp  * ( pe3w (ji,jj,jk)   + pe3w (ji+1,jj,  jk) )
