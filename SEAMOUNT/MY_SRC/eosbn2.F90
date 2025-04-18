@@ -360,7 +360,7 @@ CONTAINS
       INTEGER  ::   ji, jj, jk, jsmp             ! dummy loop indices
       INTEGER  ::   jdof
 
-      INTEGER  ::   ll_dbg_eos                        ! for temporary write statements
+      LOGICAL  ::   ll_dbg_eos                        ! for temporary write statements
       REAL(wp), DIMENSION(A2D(nn_hls), jpk) :: z_tbg ! for temporary write statements
 
       REAL(wp) ::   zt , zh , zstemp, zs , ztm   ! local scalars

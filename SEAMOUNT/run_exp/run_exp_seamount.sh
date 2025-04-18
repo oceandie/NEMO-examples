@@ -9,10 +9,10 @@ exp_cfg="1"  # 0: Shchepetkin and McWilliams (2002)
              #    Initialisation: Amy Young
              # 4: Domain: Amy Young
              #    Initialisation: Ezer et al. 2022 
-outfreq="3h" # "1ts" "1h" "3h" "1d"
-expdays=180  # number of days we want to run our simulations
+outfreq="1h" #"3h" # "1ts" "1h" "3h" "1d"
+expdays=1    #180  # number of days we want to run our simulations
 basedir=${PWD}
-nemodir="/projects/jmmp/dbruciaf/NEMO/CHECKOUTS_4.0/NEMO_4.0-TRUNK_r14960_HPG"
+nemodir="/home/users/diego.bruciaferri/NEMO/v4.2.2/515-branch-for-testing-various-hpg-schemes-in-v4-2-2"
 testdir=${nemodir}"/tests/SEAMOUNT"
 exp_ref=${testdir}"/EXPREF"
 nemoexe=${testdir}"/BLD/bin/nemo.exe"
@@ -22,6 +22,13 @@ nam_tmp=${testdir}"/EXPREF/nam_cfg/namelist_cfg.steep.template"
 # SETTING the environment for python
 isloaded=`module -t list 2> >(grep scitools/default-current)`
 [ -z "$isloaded" ] && module load scitools/default-current
+
+# SETTING the environment for xios3
+MODULE_PATH='/home/users/daley.calvert/modules/'
+module use ${MODULE_PATH}
+xios3=`module -t list 2> >(grep XIOS-PrgEnv/3.0/trunk/2571)`
+[ -z "$xios3" ] && module load XIOS-PrgEnv/3.0/trunk/2571
+xiosexe=${xios_path}/bin/xios_server.exe
 
 #-------------------------------------------------------------------------------------
 # SETTING the general experimental setup in the namelist
@@ -147,7 +154,9 @@ vco=sig
 
     #for hpg in sco prj djc djcr ffl ffq_cub ffq_ccs fflr ffq_cubr ffq_ccsr; do
     #for hpg in sco djc ffl fflr fflr2 ffq_cubr ffq_cubr2 ffq_ccsr ffq_ccsr2; do
-    for hpg in ffq_cubr2 ffq_ccsr2; do
+    #for hpg in ffq_cubr2 ffq_ccsr2; do
+    #for hpg in sco prj djc djcr ffl fflr fflr2 ffq_cub ffq_cubr ffq_cubr2 ffq_ccs ffq_ccsr ffq_ccsr2; do
+    hpg=djc
 
         #for ini in pnt ave; do
         ini=pnt
@@ -163,6 +172,7 @@ vco=sig
                    mkdir ${exp_dir}
                    cp ${exp_ref}/*{xml,ref} ${exp_dir}
                    ln -s ${nemoexe} ${exp_dir}"/nemo"
+		   ln -s ${xiosexe} ${exp_dir}"/xios"
                    ln -s ${basedir}"/run_job.sh" ${exp_dir}"/run_job.sh"  
                    ln -s ${exp_dir}"/file_def_nemo-oce_"${outfreq}".xml" ${exp_dir}"/file_def_nemo-oce.xml"
 
@@ -381,7 +391,7 @@ vco=sig
                 fi
             #done
         #done
-    done
+#    done
 #done
 
 rm ${nam_tmp}
